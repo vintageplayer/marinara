@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
 
-  "name": "Chrome Extension TypeScript Starter",
-  "description": "Chrome Extension, TypeScript, Visual Studio Code",
+  "name": "Gamodoro",
+  "description": "Gamified Pomodoro timer with streak, points multiplier, leaderboard, and more",
   "version": "1.0",
 
   "options_ui": {

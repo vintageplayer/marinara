@@ -1,7 +1,7 @@
 {
-  "name": "chrome-extension-typescript-starter",
+  "name": "gamodoro",
   "version": "1.0.0",
-  "description": "chrome-extension-typescript-starter",
+  "description": "Gamified Pomodoro timer with streak, points multiplier, leaderboard, and more",
   "main": "index.js",
   "scripts": {
     "watch": "webpack --config webpack/webpack.dev.js --watch",
@@ -14,7 +14,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/chibat/chrome-extension-typescript-starter.git"
+    "url": "https://github.com/vintageplayer/gamodoro.git"
   },
   "dependencies": {
     "react": "^18.2.0",
