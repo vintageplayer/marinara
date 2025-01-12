@@ -66,20 +66,6 @@ export default function PhaseCompletion() {
       console.log('Current timer response:', response);
       setCurrentTimer(response);
     });
-
-    // Add listener for timer start events
-    const messageListener = (message: any) => {
-      if (message.action === 'timerStarted') {
-        window.close();
-      }
-    };
-
-    chrome.runtime.onMessage.addListener(messageListener);
-
-    // Cleanup listener on unmount
-    return () => {
-      chrome.runtime.onMessage.removeListener(messageListener);
-    };
   }, []);
 
   if (!timerInfo) return null;

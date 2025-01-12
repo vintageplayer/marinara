@@ -75,7 +75,8 @@ export function getNextTimerType(): TimerType {
   
   // After completing a focus session
   if (lastCompletedType === 'focus') {
-    return currentTimer.focusSessionsCompleted >= FOCUS_SESSIONS_BEFORE_LONG_BREAK ? 'long-break' : 'short-break';
+    // Check if this was the last focus session before long break
+    return (currentTimer.focusSessionsCompleted + 1) >= FOCUS_SESSIONS_BEFORE_LONG_BREAK ? 'long-break' : 'short-break';
   }
   
   // After completing any break, return to focus
@@ -116,20 +117,22 @@ export function startTimer(type: TimerType) {
     remainingTime: duration
   });
 
-  // Notify all tabs that timer has started
-  chrome.tabs.query({}, (tabs) => {
-    tabs.forEach(tab => {
-      if (tab.id) {
-        try {
-          chrome.tabs.sendMessage(tab.id, { action: 'timerStarted' });
-        } catch {
-          // Ignore errors from tabs that don't have listeners
+  // Close any open phase completion pages
+  try {
+    const phaseCompletionUrl = chrome.runtime.getURL('phaseComplete.html');
+    chrome.tabs.query({ url: phaseCompletionUrl }, (tabs) => {
+      tabs.forEach(tab => {
+        if (tab.id) {
+          chrome.tabs.remove(tab.id);
         }
-      }
+      });
     });
-  });
+  } catch (error) {
+    console.error('Error closing phase completion tabs:', error);
+  }
 
   startTimerInterval();
+  return notifyStateChanged();
 }
 
 export function stopTimer() {
@@ -208,14 +211,18 @@ function startTimerInterval() {
       
       if (remaining === 0) {
         const completedType = currentTimer.type;
-        if (completedType) {
-          handleTimerComplete(completedType);
-        }
-        stopTimer();
         clearInterval(intervalId);
-        openTimerCompletePage().catch(error => {
-          console.error('Error opening timer complete page:', error);
-        });
+        
+        if (completedType) {
+          // First stop the timer so the state is clean for the next phase
+          stopTimer();
+          // Then handle completion which will update lastCompletedType and counters
+          handleTimerComplete(completedType);
+          // Finally open the completion page which will use the updated state
+          openTimerCompletePage().catch(error => {
+            console.error('Error opening timer complete page:', error);
+          });
+        }
       } else if (remaining === null) {
         throw new TimerError('Invalid remaining time calculated');
       } else {
@@ -236,14 +243,12 @@ function handleTimerComplete(type: TimerType) {
   };
   
   if (type === 'focus') {
-    const newFocusSessionsCompleted = currentTimer.focusSessionsCompleted + 1;
-    updates.focusSessionsCompleted = newFocusSessionsCompleted;
-    
-    if (newFocusSessionsCompleted >= FOCUS_SESSIONS_BEFORE_LONG_BREAK) {
-      updates.totalCycles = currentTimer.totalCycles + 1;
-    }
-  } else if (type === 'long-break' && currentTimer.focusSessionsCompleted >= FOCUS_SESSIONS_BEFORE_LONG_BREAK) {
+    // Increment focus sessions completed
+    updates.focusSessionsCompleted = currentTimer.focusSessionsCompleted + 1;
+  } else if (type === 'long-break') {
+    // Only reset counter and increment cycles after completing the long break
     updates.focusSessionsCompleted = 0;
+    updates.totalCycles = currentTimer.totalCycles + 1;
   }
   
   updateTimerState(updates);
@@ -284,4 +289,18 @@ function notifyStateChanged() {
   return initializeContextMenu().catch(error => {
     console.error('Error updating context menu:', error);
   });
+}
+
+export function restartCycle() {
+  updateTimerState({
+    isRunning: false,
+    isPaused: false,
+    type: null,
+    lastCompletedType: null,
+    endTime: null,
+    remainingTime: null,
+    focusSessionsCompleted: 0,
+    totalCycles: currentTimer.totalCycles
+  });
+  startTimer('focus');
 } 
