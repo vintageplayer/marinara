@@ -1,18 +1,50 @@
 import { initializeContextMenu } from './context-menu';
-import { TimerState, TimerType, TIMER_DURATIONS, FOCUS_SESSIONS_BEFORE_LONG_BREAK } from './pomodoro-settings';
+import { TimerState, TimerType, FOCUS_SESSIONS_BEFORE_LONG_BREAK } from './pomodoro-settings';
 import { updateBadge, clearBadge } from './extension-badge';
 import { notifyTimerComplete } from './completion-notifications';
+import { 
+  getTimerDuration, 
+  calculateRemainingTime, 
+  TIMER_UPDATE_INTERVAL,
+  TimerError,
+  validateTimerState 
+} from './timer-utils';
 
 // Current timer state
-let currentTimer: TimerState = {
+const defaultTimerState: TimerState = {
   isRunning: false,
   isPaused: false,
   type: null,
+  lastCompletedType: null,
   endTime: null,
   remainingTime: null,
   focusSessionsCompleted: 0,
   totalCycles: 0
 };
+
+let currentTimer: TimerState = { ...defaultTimerState };
+
+function updateTimerState(updates: Partial<TimerState>) {
+  try {
+    const newState = {
+      ...currentTimer,
+      ...updates
+    };
+
+    // Validate the new state before applying
+    if (!validateTimerState(newState)) {
+      throw new TimerError('Invalid timer state update');
+    }
+
+    currentTimer = newState;
+    saveTimerState();
+  } catch (error) {
+    console.error('Error updating timer state:', error);
+    // Reset to default state if update fails
+    currentTimer = { ...defaultTimerState };
+    saveTimerState();
+  }
+}
 
 export function isTimerRunning(): boolean {
   return currentTimer.isRunning;
@@ -33,18 +65,20 @@ export function getFocusProgress(): { current: number; total: number } {
   };
 }
 
-function getNextTimerType(): TimerType {
-  const lastType = currentTimer.type;
+export function getNextTimerType(): TimerType {
+  const lastCompletedType = currentTimer.lastCompletedType;
   
-  if (!lastType || lastType === 'long-break') {
+  // If no timer has run yet or we just finished a long break, start with focus
+  if (!lastCompletedType || lastCompletedType === 'long-break') {
     return 'focus';
   }
   
-  if (lastType === 'focus') {
-    // Long break after completing all focus sessions
+  // After completing a focus session
+  if (lastCompletedType === 'focus') {
     return currentTimer.focusSessionsCompleted >= FOCUS_SESSIONS_BEFORE_LONG_BREAK ? 'long-break' : 'short-break';
   }
   
+  // After completing any break, return to focus
   return 'focus';
 }
 
@@ -58,126 +92,190 @@ export function handleClick() {
   }
 }
 
+async function openTimerCompletePage() {
+  // Get the current active tab
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  
+  // Open new tab next to current one
+  await chrome.tabs.create({
+    url: chrome.runtime.getURL('phaseComplete.html'),
+    index: tab ? tab.index + 1 : undefined,
+    active: true
+  });
+}
+
 export function startTimer(type: TimerType) {
-  if (currentTimer.isRunning || currentTimer.isPaused) {
-    stopTimer();
-  }
+  const duration = getTimerDuration(type);
+  const endTime = Date.now() + duration * 1000;
 
-  const duration = type === 'focus' 
-    ? TIMER_DURATIONS.focus 
-    : type === 'short-break' 
-      ? TIMER_DURATIONS.shortBreak 
-      : TIMER_DURATIONS.longBreak;
-
-  currentTimer = {
+  updateTimerState({
     isRunning: true,
     isPaused: false,
     type,
-    endTime: Date.now() + duration * 1000,
-    remainingTime: duration,
-    focusSessionsCompleted: currentTimer.focusSessionsCompleted,
-    totalCycles: currentTimer.totalCycles
-  };
+    endTime,
+    remainingTime: duration
+  });
 
-  updateBadge(currentTimer);
+  // Notify all tabs that timer has started
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach(tab => {
+      if (tab.id) {
+        try {
+          chrome.tabs.sendMessage(tab.id, { action: 'timerStarted' });
+        } catch {
+          // Ignore errors from tabs that don't have listeners
+        }
+      }
+    });
+  });
+
   startTimerInterval();
-  saveTimerState();
-  return notifyStateChanged();
 }
 
 export function stopTimer() {
-  currentTimer = {
-    isRunning: false,
-    isPaused: false,
-    type: null,
-    endTime: null,
-    remainingTime: null,
-    focusSessionsCompleted: currentTimer.focusSessionsCompleted,
-    totalCycles: currentTimer.totalCycles
-  };
-  
-  clearBadge();
-  saveTimerState();
-  return notifyStateChanged();
+  try {
+    updateTimerState({
+      isRunning: false,
+      isPaused: false,
+      type: null,
+      endTime: null,
+      remainingTime: null
+    });
+    
+    clearBadge();
+    return notifyStateChanged();
+  } catch (error) {
+    console.error('Error stopping timer:', error);
+    return Promise.reject(error);
+  }
 }
 
 export function pauseTimer() {
-  if (!currentTimer.isRunning) return;
-  
-  currentTimer.isRunning = false;
-  currentTimer.isPaused = true;
-  if (currentTimer.endTime) {
-    currentTimer.remainingTime = Math.max(0, Math.floor((currentTimer.endTime - Date.now()) / 1000));
-  }
+  try {
+    if (!currentTimer.isRunning) return;
+    
+    const remaining = calculateRemainingTime(currentTimer.endTime);
+    if (remaining === null) {
+      throw new TimerError('Cannot pause timer: Invalid remaining time');
+    }
 
-  updateBadge(currentTimer);
-  saveTimerState();
-  return notifyStateChanged();
+    updateTimerState({
+      isRunning: false,
+      isPaused: true,
+      remainingTime: remaining
+    });
+
+    updateBadge(currentTimer);
+    return notifyStateChanged();
+  } catch (error) {
+    console.error('Error pausing timer:', error);
+    stopTimer();
+    return Promise.reject(error);
+  }
 }
 
 export function resumeTimer() {
-  if (currentTimer.isRunning || !currentTimer.remainingTime || !currentTimer.type) return;
-  
-  currentTimer.isRunning = true;
-  currentTimer.isPaused = false;
-  currentTimer.endTime = Date.now() + (currentTimer.remainingTime * 1000);
-  
-  updateBadge(currentTimer);
-  startTimerInterval();
-  saveTimerState();
-  return notifyStateChanged();
+  try {
+    if (currentTimer.isRunning || !currentTimer.remainingTime || !currentTimer.type) {
+      throw new TimerError('Cannot resume timer: Invalid timer state');
+    }
+    
+    updateTimerState({
+      isRunning: true,
+      isPaused: false,
+      endTime: Date.now() + (currentTimer.remainingTime * 1000)
+    });
+    
+    updateBadge(currentTimer);
+    startTimerInterval();
+    return notifyStateChanged();
+  } catch (error) {
+    console.error('Error resuming timer:', error);
+    stopTimer();
+    return Promise.reject(error);
+  }
 }
 
 function startTimerInterval() {
   const intervalId = setInterval(() => {
-    if (!currentTimer.isRunning || !currentTimer.endTime) {
-      clearInterval(intervalId);
-      return;
-    }
-
-    const now = Date.now();
-    const remaining = Math.max(0, Math.floor((currentTimer.endTime - now) / 1000));
-    
-    if (remaining === 0) {
-      const completedType = currentTimer.type;
-      if (completedType) {
-        handleTimerComplete(completedType);
+    try {
+      if (!currentTimer.isRunning || !currentTimer.endTime) {
+        clearInterval(intervalId);
+        return;
       }
-      stopTimer();
+
+      const remaining = calculateRemainingTime(currentTimer.endTime);
+      
+      if (remaining === 0) {
+        const completedType = currentTimer.type;
+        if (completedType) {
+          handleTimerComplete(completedType);
+        }
+        stopTimer();
+        clearInterval(intervalId);
+        openTimerCompletePage().catch(error => {
+          console.error('Error opening timer complete page:', error);
+        });
+      } else if (remaining === null) {
+        throw new TimerError('Invalid remaining time calculated');
+      } else {
+        updateTimerState({ remainingTime: remaining });
+        updateBadge(currentTimer);
+      }
+    } catch (error) {
+      console.error('Error in timer interval:', error);
       clearInterval(intervalId);
-    } else {
-      currentTimer.remainingTime = remaining;
-      updateBadge(currentTimer);
+      stopTimer();
     }
-  }, 1000);
+  }, TIMER_UPDATE_INTERVAL);
 }
 
 function handleTimerComplete(type: TimerType) {
+  const updates: Partial<TimerState> = {
+    lastCompletedType: type
+  };
+  
   if (type === 'focus') {
-    currentTimer.focusSessionsCompleted++;
-    if (currentTimer.focusSessionsCompleted >= FOCUS_SESSIONS_BEFORE_LONG_BREAK) {
-      currentTimer.totalCycles++;
+    const newFocusSessionsCompleted = currentTimer.focusSessionsCompleted + 1;
+    updates.focusSessionsCompleted = newFocusSessionsCompleted;
+    
+    if (newFocusSessionsCompleted >= FOCUS_SESSIONS_BEFORE_LONG_BREAK) {
+      updates.totalCycles = currentTimer.totalCycles + 1;
     }
   } else if (type === 'long-break' && currentTimer.focusSessionsCompleted >= FOCUS_SESSIONS_BEFORE_LONG_BREAK) {
-    // Only reset after completing all focus sessions and the long break
-    currentTimer.focusSessionsCompleted = 0;
+    updates.focusSessionsCompleted = 0;
   }
+  
+  updateTimerState(updates);
   notifyTimerComplete(type);
-  saveTimerState();
 }
 
 function saveTimerState() {
-  chrome.storage.local.set({ timer: currentTimer });
+  chrome.storage.local.set({ timer: currentTimer }).catch(error => {
+    console.error('Error saving timer state:', error);
+  });
 }
 
 export function initializeTimer() {
   chrome.storage.local.get(['timer'], (result) => {
-    if (result.timer) {
-      currentTimer = result.timer;
-      if (currentTimer.isRunning) {
-        updateBadge(currentTimer);
-        startTimerInterval();
+    try {
+      if (result.timer && validateTimerState(result.timer)) {
+        updateTimerState({
+          ...defaultTimerState,
+          ...result.timer
+        });
+        
+        if (currentTimer.isRunning) {
+          updateBadge(currentTimer);
+          startTimerInterval();
+        }
+      } else {
+        console.warn('Invalid timer state in storage, resetting to default');
+        updateTimerState(defaultTimerState);
       }
+    } catch (error) {
+      console.error('Error initializing timer:', error);
+      updateTimerState(defaultTimerState);
     }
   });
 }

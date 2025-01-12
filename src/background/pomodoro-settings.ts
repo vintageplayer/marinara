@@ -4,6 +4,7 @@ export interface TimerState {
   isRunning: boolean;
   isPaused: boolean;
   type: TimerType | null;
+  lastCompletedType: TimerType | null;
   endTime: number | null;
   remainingTime: number | null;
   focusSessionsCompleted: number;  // Number of focus sessions completed before long break
@@ -16,5 +17,5 @@ export const TIMER_DURATIONS = {
   longBreak: 15 * 60 // 15 minutes
 };
 
-// Take a long break after completing 5 focus sessions
-export const FOCUS_SESSIONS_BEFORE_LONG_BREAK = 5; 
+// Take a long break after completing 4 focus sessions
+export const FOCUS_SESSIONS_BEFORE_LONG_BREAK = 4; 

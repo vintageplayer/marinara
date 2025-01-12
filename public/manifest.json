@@ -21,6 +21,12 @@
   "permissions": [
     "storage",
     "contextMenus",
-    "notifications"
-  ]
+    "notifications",
+    "tabs"
+  ],
+
+  "web_accessible_resources": [{
+    "resources": ["phaseComplete.html"],
+    "matches": ["chrome-extension://*/*"]
+  }]
 }

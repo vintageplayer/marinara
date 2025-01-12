@@ -1,5 +1,6 @@
 import { initializeTimer, handleClick } from './pomodoro-timer';
 import { initializeContextMenu, handleContextMenuClick } from './context-menu';
+import { initializeMessageHandlers } from './messages';
 
 // Initialize timer state
 initializeTimer();
@@ -8,6 +9,9 @@ initializeTimer();
 chrome.runtime.onInstalled.addListener(() => {
   initializeContextMenu();
 });
+
+// Initialize message handlers
+initializeMessageHandlers();
 
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(handleContextMenuClick);

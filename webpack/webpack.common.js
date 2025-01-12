@@ -8,6 +8,7 @@ const fs = require("fs");
 const entries = {
   options: path.join(srcDir, 'options/index.tsx'),
   background: path.join(srcDir, 'background/background.ts'),
+  phaseCompletion: path.join(srcDir, 'phaseCompletion/index.tsx')
 };
 
 // Add content_script only if it exists
