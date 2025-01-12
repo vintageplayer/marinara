@@ -15,11 +15,9 @@ chrome.contextMenus.onClicked.addListener(handleContextMenuClick);
 // Handle extension icon clicks
 chrome.action.onClicked.addListener(() => {
   if (isTimerRunning()) {
-    if (isTimerPaused()) {
-      resumeTimer();
-    } else {
-      pauseTimer();
-    }
+    pauseTimer();
+  } else if (isTimerPaused()) {
+    resumeTimer();
   } else {
     startTimer('focus');
   }
