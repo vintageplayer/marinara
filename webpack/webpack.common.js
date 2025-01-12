@@ -6,7 +6,6 @@ const fs = require("fs");
 
 // Define entry points
 const entries = {
-  popup: path.join(srcDir, 'popup/index.tsx'),
   options: path.join(srcDir, 'options/index.tsx'),
   background: path.join(srcDir, 'background/background.ts'),
 };

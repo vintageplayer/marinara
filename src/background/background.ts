@@ -1,4 +1,4 @@
-import { initializeTimer } from './pomodoro-timer';
+import { initializeTimer, getCurrentTimer, startTimer, pauseTimer, resumeTimer, isTimerRunning, isTimerPaused } from './pomodoro-timer';
 import { initializeContextMenu, handleContextMenuClick } from './context-menu';
 
 // Initialize timer state
@@ -11,6 +11,19 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(handleContextMenuClick);
+
+// Handle extension icon clicks
+chrome.action.onClicked.addListener(() => {
+  if (isTimerRunning()) {
+    if (isTimerPaused()) {
+      resumeTimer();
+    } else {
+      pauseTimer();
+    }
+  } else {
+    startTimer('focus');
+  }
+});
 
 // Keep service worker alive
 function polling() {
