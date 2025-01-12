@@ -1,6 +1,6 @@
 import { startTimer, stopTimer, pauseTimer, resumeTimer, isTimerRunning, isTimerPaused } from './pomodoro-timer';
 import { MenuIds, MenuItem } from './context-menu-ids';
-import { timerControls, startOptions, restartMenu, restartSubmenu, additionalItems } from './context-menu-items';
+import { timerControls, startOptions, restartMenu, restartSubmenu, additionalItems, historyGroup } from './context-menu-items';
 
 // Track initialization state
 let isInitializing = false;
@@ -36,6 +36,7 @@ async function createMenuItem(item: MenuItem) {
   await chrome.contextMenus.create({
     id: item.id,
     title: item.title,
+    type: item.type || 'normal',
     contexts: ['action'],
     parentId: item.parentId,
     visible: item.parentId ? true : false
@@ -58,6 +59,11 @@ async function createMenuStructure() {
   for (const item of additionalItems) {
     await createMenuItem(item);
   }
+
+  // Create history group
+  for (const item of historyGroup) {
+    await createMenuItem(item);
+  }
 }
 
 async function updateMenuState() {
@@ -75,7 +81,7 @@ async function updateMenuState() {
         [MenuIds.START.FOCUS]: false,
         [MenuIds.START.SHORT_BREAK]: false,
         [MenuIds.START.LONG_BREAK]: false,
-        [MenuIds.VIEW_HISTORY]: false
+        [MenuIds.VIEW_HISTORY]: true
       }
     : {
         [MenuIds.RESTART.MENU]: false,

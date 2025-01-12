@@ -24,6 +24,10 @@ export const restartSubmenu: MenuItem[] = [
 ];
 
 export const additionalItems: MenuItem[] = [
-  { id: MenuIds.RESTART_CYCLE, title: 'Restart Pomodoro Cycle' },
-  { id: MenuIds.VIEW_HISTORY, title: 'View History' }
+  { id: MenuIds.RESTART_CYCLE, title: 'Restart Pomodoro Cycle' }
+];
+
+export const historyGroup: MenuItem[] = [
+  { id: MenuIds.SEPARATOR, title: '', type: 'separator' },
+  { id: MenuIds.VIEW_HISTORY, title: 'Pomodoro History' }
 ]; 

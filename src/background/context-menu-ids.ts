@@ -14,11 +14,13 @@ export const MenuIds = {
     LONG_BREAK: 'start-long-break'
   },
   RESTART_CYCLE: 'restart-cycle',
-  VIEW_HISTORY: 'view-history'
+  VIEW_HISTORY: 'view-history',
+  SEPARATOR: 'separator'
 } as const;
 
 export interface MenuItem {
   id: string;
   title: string;
   parentId?: string;
+  type?: 'normal' | 'separator';
 } 
