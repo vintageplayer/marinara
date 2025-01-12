@@ -1,5 +1,5 @@
 import { initializeContextMenu } from './context-menu';
-import { TimerState, TimerType, TIMER_DURATIONS } from './pomodoro-settings';
+import { TimerState, TimerType, TIMER_DURATIONS, FOCUS_SESSIONS_BEFORE_LONG_BREAK } from './pomodoro-settings';
 import { updateBadge, clearBadge } from './extension-badge';
 import { notifyTimerComplete } from './completion-notifications';
 
@@ -9,10 +9,11 @@ let currentTimer: TimerState = {
   isPaused: false,
   type: null,
   endTime: null,
-  remainingTime: null
+  remainingTime: null,
+  focusSessionsCompleted: 0,
+  totalCycles: 0
 };
 
-// State getters
 export function isTimerRunning(): boolean {
   return currentTimer.isRunning;
 }
@@ -25,7 +26,38 @@ export function getCurrentTimer(): TimerState {
   return { ...currentTimer };
 }
 
-// Timer actions
+export function getFocusProgress(): { current: number; total: number } {
+  return {
+    current: currentTimer.focusSessionsCompleted,
+    total: FOCUS_SESSIONS_BEFORE_LONG_BREAK
+  };
+}
+
+function getNextTimerType(): TimerType {
+  const lastType = currentTimer.type;
+  
+  if (!lastType || lastType === 'long-break') {
+    return 'focus';
+  }
+  
+  if (lastType === 'focus') {
+    // Long break after completing all focus sessions
+    return currentTimer.focusSessionsCompleted >= FOCUS_SESSIONS_BEFORE_LONG_BREAK ? 'long-break' : 'short-break';
+  }
+  
+  return 'focus';
+}
+
+export function handleClick() {
+  if (isTimerRunning()) {
+    pauseTimer();
+  } else if (isTimerPaused()) {
+    resumeTimer();
+  } else {
+    startTimer(getNextTimerType());
+  }
+}
+
 export function startTimer(type: TimerType) {
   if (currentTimer.isRunning || currentTimer.isPaused) {
     stopTimer();
@@ -42,7 +74,9 @@ export function startTimer(type: TimerType) {
     isPaused: false,
     type,
     endTime: Date.now() + duration * 1000,
-    remainingTime: duration
+    remainingTime: duration,
+    focusSessionsCompleted: currentTimer.focusSessionsCompleted,
+    totalCycles: currentTimer.totalCycles
   };
 
   updateBadge(currentTimer);
@@ -57,7 +91,9 @@ export function stopTimer() {
     isPaused: false,
     type: null,
     endTime: null,
-    remainingTime: null
+    remainingTime: null,
+    focusSessionsCompleted: currentTimer.focusSessionsCompleted,
+    totalCycles: currentTimer.totalCycles
   };
   
   clearBadge();
@@ -92,7 +128,6 @@ export function resumeTimer() {
   return notifyStateChanged();
 }
 
-// Timer interval management
 function startTimerInterval() {
   const intervalId = setInterval(() => {
     if (!currentTimer.isRunning || !currentTimer.endTime) {
@@ -104,8 +139,9 @@ function startTimerInterval() {
     const remaining = Math.max(0, Math.floor((currentTimer.endTime - now) / 1000));
     
     if (remaining === 0) {
-      if (currentTimer.type) {
-        notifyTimerComplete(currentTimer.type);
+      const completedType = currentTimer.type;
+      if (completedType) {
+        handleTimerComplete(completedType);
       }
       stopTimer();
       clearInterval(intervalId);
@@ -116,7 +152,20 @@ function startTimerInterval() {
   }, 1000);
 }
 
-// State management
+function handleTimerComplete(type: TimerType) {
+  if (type === 'focus') {
+    currentTimer.focusSessionsCompleted++;
+    if (currentTimer.focusSessionsCompleted >= FOCUS_SESSIONS_BEFORE_LONG_BREAK) {
+      currentTimer.totalCycles++;
+    }
+  } else if (type === 'long-break' && currentTimer.focusSessionsCompleted >= FOCUS_SESSIONS_BEFORE_LONG_BREAK) {
+    // Only reset after completing all focus sessions and the long break
+    currentTimer.focusSessionsCompleted = 0;
+  }
+  notifyTimerComplete(type);
+  saveTimerState();
+}
+
 function saveTimerState() {
   chrome.storage.local.set({ timer: currentTimer });
 }
