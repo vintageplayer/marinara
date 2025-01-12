@@ -1,4 +1,4 @@
-import { initializeTimer } from './timer';
+import { initializeTimer } from './pomodoro-timer';
 import { initializeContextMenu, handleContextMenuClick } from './context-menu';
 
 // Initialize timer state
