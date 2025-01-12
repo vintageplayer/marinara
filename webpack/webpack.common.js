@@ -2,14 +2,23 @@ const webpack = require("webpack");
 const path = require("path");
 const CopyPlugin = require("copy-webpack-plugin");
 const srcDir = path.join(__dirname, "..", "src");
+const fs = require("fs");
+
+// Define entry points
+const entries = {
+  popup: path.join(srcDir, 'popup/index.tsx'),
+  options: path.join(srcDir, 'options/index.tsx'),
+  background: path.join(srcDir, 'background/background.ts'),
+};
+
+// Add content_script only if it exists
+const contentScriptPath = path.join(srcDir, 'content/content_script.tsx');
+if (fs.existsSync(contentScriptPath)) {
+  entries.content_script = contentScriptPath;
+}
 
 module.exports = {
-    entry: {
-      popup: path.join(srcDir, 'popup/index.tsx'),
-      options: path.join(srcDir, 'options/index.tsx'),
-      background: path.join(srcDir, 'background/background.ts'),
-      content_script: path.join(srcDir, 'content/content_script.tsx'),
-    },
+    entry: entries,
     output: {
         path: path.join(__dirname, "../dist/js"),
         filename: "[name].js",
