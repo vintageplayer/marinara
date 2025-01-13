@@ -1,12 +1,12 @@
-import { TimerState, TimerType } from './pomodoro-settings';
+import { TimerState, TimerType } from '../core/pomodoro-settings';
 
 export function updateBadge(timer: TimerState) {
-  if (!timer.type) {
+  if (!timer.timerType) {
     chrome.action.setBadgeText({ text: '' });
     return;
   }
 
-  updateBadgeColor(timer.type);
+  updateBadgeColor(timer.timerType);
   updateBadgeText(timer);
 }
 
@@ -16,14 +16,14 @@ function updateBadgeColor(type: TimerType) {
 }
 
 function updateBadgeText(timer: TimerState) {
-  if (timer.isPaused) {
+  if (timer.timerStatus === 'paused') {
     chrome.action.setBadgeText({ text: '-' });
     return;
   }
 
-  if (timer.isRunning && timer.remainingTime) {
+  if (timer.timerStatus === 'running' && timer.remainingTime) {
     const minutes = Math.ceil(timer.remainingTime / 60);
-    const badgeText = timer.type === 'focus' && timer.remainingTime < 60
+    const badgeText = timer.timerType === 'focus' && timer.remainingTime < 60
       ? '<1m'
       : `${minutes}m`;
     

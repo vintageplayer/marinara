@@ -1,5 +1,5 @@
-import { MenuIds } from './ui/context-menu-ids';
-import pomodoroTimer from './core/pomodoro-timer';
+import { MenuIds } from './context-menu-ids';
+import pomodoroTimer from '../core/pomodoro-timer';
 
 export interface MenuItem {
   id: string;

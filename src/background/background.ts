@@ -1,9 +1,6 @@
-import { initializeTimer, handleClick } from './pomodoro-timer';
-import { initializeContextMenu, handleContextMenuClick } from './context-menu';
-import { initializeMessageHandlers } from './messages';
-
-// Initialize timer state
-initializeTimer();
+import pomodoroTimer from './core/pomodoro-timer';
+import { initializeContextMenu, handleContextMenuClick } from './ui/context-menu';
+import { initializeMessageHandlers } from './messaging/messages';
 
 // Initialize context menu
 chrome.runtime.onInstalled.addListener(() => {
@@ -18,5 +15,5 @@ chrome.contextMenus.onClicked.addListener(handleContextMenuClick);
 
 // Handle extension icon clicks
 chrome.action.onClicked.addListener(() => {
-  handleClick();
+  pomodoroTimer.toggleTimerState();
 });

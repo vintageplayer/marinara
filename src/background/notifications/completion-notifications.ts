@@ -1,4 +1,4 @@
-import { TimerType } from './pomodoro-settings';
+import { TimerType } from '../core/pomodoro-settings';
 
 export function notifyTimerComplete(type: TimerType) {
   const title = type === 'focus' 

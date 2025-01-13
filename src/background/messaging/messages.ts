@@ -1,6 +1,6 @@
-import { TimerState } from './pomodoro-settings';
-import { getCurrentTimer, handleClick, getNextTimerType } from './pomodoro-timer';
-import { TimerError } from './timer-utils';
+import { TimerState } from '../core/pomodoro-settings';
+import pomodoroTimer from '../core/pomodoro-timer';
+import { TimerError } from '../core/timer-utils';
 
 interface NextPhaseInfo {
   type: 'focus' | 'short-break' | 'long-break';
@@ -10,7 +10,7 @@ interface NextPhaseInfo {
 type MessageAction = 
   | { action: 'getNextPhaseInfo' }
   | { action: 'getCurrentTimer' }
-  | { action: 'handleClick' }
+  | { action: 'toggleTimer' }
   | { action: 'openHistory' };
 
 type MessageResponse<T extends MessageAction> = 
@@ -26,7 +26,7 @@ function isMessageAction(message: unknown): message is MessageAction {
   if (!message || typeof message !== 'object') return false;
   const { action } = message as { action: unknown };
   return typeof action === 'string' && 
-    ['getNextPhaseInfo', 'getCurrentTimer', 'handleClick', 'openHistory'].includes(action);
+    ['getNextPhaseInfo', 'getCurrentTimer', 'toggleTimer', 'openHistory'].includes(action);
 }
 
 export function initializeMessageHandlers() {
@@ -39,8 +39,8 @@ export function initializeMessageHandlers() {
       switch (message.action) {
         case 'getNextPhaseInfo': {
           try {
-            const timer = getCurrentTimer();
-            const nextType = getNextTimerType();
+            const timer = pomodoroTimer.getCurrentState();
+            const nextType = pomodoroTimer.getNextType();
             
             sendResponse({
               type: nextType,
@@ -57,7 +57,7 @@ export function initializeMessageHandlers() {
         
         case 'getCurrentTimer':
           try {
-            sendResponse(getCurrentTimer());
+            sendResponse(pomodoroTimer.getCurrentState());
           } catch (error) {
             console.error('Error getting current timer:', error);
             sendResponse({ 
@@ -66,14 +66,14 @@ export function initializeMessageHandlers() {
           }
           break;
         
-        case 'handleClick':
+        case 'toggleTimer':
           try {
-            handleClick();
+            pomodoroTimer.toggleTimerState();
             sendResponse();
           } catch (error) {
-            console.error('Error handling click:', error);
+            console.error('Error toggling timer:', error);
             sendResponse({ 
-              error: error instanceof Error ? error.message : 'Unknown error handling click'
+              error: error instanceof Error ? error.message : 'Unknown error toggling timer'
             });
           }
           break;

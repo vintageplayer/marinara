@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FOCUS_SESSIONS_BEFORE_LONG_BREAK, TimerState, TimerType } from '../background/pomodoro-settings';
+import { FOCUS_SESSIONS_BEFORE_LONG_BREAK, TimerState, TimerType } from '../background/core/pomodoro-settings';
 
 interface TimerInfo {
   type: TimerType;
@@ -17,21 +17,12 @@ function formatPhaseText(type: TimerType): string {
   }
 }
 
-function getPhaseToShow(timerInfo: TimerInfo, currentTimer: TimerState | null): TimerType {
-  console.log('Timer Info:', timerInfo);
-  console.log('Current Timer:', currentTimer);
-  
-  // If there's a timer running or paused, use its type
-  if (currentTimer && (currentTimer.isRunning || currentTimer.isPaused) && currentTimer.type) {
-    console.log('Using current timer type:', currentTimer.type);
-    return currentTimer.type;
+function getNextPhaseToShow(timerInfo: TimerInfo, currentTimer: TimerState | null): TimerType {
+  // If there's a timer active (running or paused), use its type
+  if (currentTimer && currentTimer.timerStatus !== 'stopped' && currentTimer.timerType) {
+    return currentTimer.timerType;
   }
 
-  // For debugging, log the state that led to using next phase
-  console.log('Using next phase type:', timerInfo.type);
-  console.log('Last completed type:', currentTimer?.lastCompletedType);
-  console.log('Focus sessions completed:', currentTimer?.focusSessionsCompleted);
-  
   // Otherwise use the next phase type
   return timerInfo.type;
 }
@@ -43,39 +34,32 @@ export default function PhaseCompletion() {
   useEffect(() => {
     chrome.runtime.sendMessage({ action: 'getNextPhaseInfo' }, (response) => {
       if (!response) {
-        console.error('No response received for next phase info');
         return;
       }
       if ('error' in response) {
-        console.error('Error getting timer info:', response.error);
         return;
       }
-      console.log('Next phase info response:', response);
       setTimerInfo(response);
     });
 
     chrome.runtime.sendMessage({ action: 'getCurrentTimer' }, (response) => {
       if (!response) {
-        console.error('No response received for current timer');
         return;
       }
       if ('error' in response) {
-        console.error('Error getting current timer:', response.error);
         return;
       }
-      console.log('Current timer response:', response);
       setCurrentTimer(response);
     });
   }, []);
 
   if (!timerInfo) return null;
 
-  const phaseType = getPhaseToShow(timerInfo, currentTimer);
+  const nextPhaseType = getNextPhaseToShow(timerInfo, currentTimer);
 
   const handleStartNext = () => {
-    chrome.runtime.sendMessage({ action: 'handleClick' }, (response) => {
+    chrome.runtime.sendMessage({ action: 'toggleTimer' }, (response) => {
       if (response && 'error' in response) {
-        console.error('Error handling click:', response.error);
         return;
       }
       window.close();
@@ -85,7 +69,6 @@ export default function PhaseCompletion() {
   const handleViewHistory = () => {
     chrome.runtime.sendMessage({ action: 'openHistory' }, (response) => {
       if (response && 'error' in response) {
-        console.error('Error opening history:', response.error);
         return;
       }
       window.close();
@@ -110,15 +93,18 @@ export default function PhaseCompletion() {
       <div className="flex flex-col items-center gap-16">
         <div className="text-center">
           <h2 className="text-3xl font-medium mb-2">
-            Start {formatPhaseText(phaseType)}
+            Start {formatPhaseText(nextPhaseType)}
           </h2>
           <div className="w-full h-px bg-gray-200 my-4" />
           {timerInfo.sessionsToday > 0 && currentTimer && (
             <div className="text-gray-600 text-lg">
-              {currentTimer.focusSessionsCompleted > 0 && phaseType != 'long-break' && (
-                <span>{FOCUS_SESSIONS_BEFORE_LONG_BREAK - currentTimer.focusSessionsCompleted} Pomodoros until long break - </span>
+              {currentTimer.focusSessionsCompleted > 0 && nextPhaseType != 'long-break' && (
+                <span>
+                  {FOCUS_SESSIONS_BEFORE_LONG_BREAK - currentTimer.focusSessionsCompleted} {' '}
+                  {FOCUS_SESSIONS_BEFORE_LONG_BREAK - currentTimer.focusSessionsCompleted === 1 ? 'Pomodoro' : 'Pomodoros'} until long break -&nbsp;
+                </span>
               )}
-              {timerInfo.sessionsToday} Pomodoros today
+              {timerInfo.sessionsToday} {timerInfo.sessionsToday === 1 ? 'Pomodoro' : 'Pomodoros'} today
             </div>
           )}
         </div>
@@ -126,12 +112,12 @@ export default function PhaseCompletion() {
         <button
           onClick={handleStartNext}
           className={`px-8 py-3 text-white text-base font-medium rounded-full shadow-lg ${
-            phaseType === 'focus' 
+            nextPhaseType === 'focus' 
               ? 'bg-red-600 hover:bg-red-700' 
               : 'bg-green-600 hover:bg-green-700'
           }`}
         >
-          Start {formatPhaseText(phaseType)}
+          Start {formatPhaseText(nextPhaseType)}
         </button>
 
         <div className="text-center">

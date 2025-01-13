@@ -1,4 +1,4 @@
-import { startTimer, stopTimer, pauseTimer, resumeTimer } from './pomodoro-timer';
+import pomodoroTimer from '../core/pomodoro-timer';
 import { MenuIds } from './context-menu-ids';
 import { menuStructure, MenuItem } from './context-menu-items';
 import { withMutex, Mutex } from './mutex';
@@ -53,28 +53,28 @@ async function updateMenuState() {
 export function handleContextMenuClick(info: chrome.contextMenus.OnClickData) {
   switch (info.menuItemId) {
     case MenuIds.PAUSE:
-      pauseTimer();
+      pomodoroTimer.pause();
       break;
     case MenuIds.RESUME:
-      resumeTimer();
+      pomodoroTimer.resume();
       break;
     case MenuIds.STOP:
-      stopTimer();
+      pomodoroTimer.stop();
       break;
     case MenuIds.START.FOCUS:
     case MenuIds.RESTART.FOCUS:
-      startTimer('focus');
+      pomodoroTimer.start('focus');
       break;
     case MenuIds.START.SHORT_BREAK:
     case MenuIds.RESTART.SHORT_BREAK:
-      startTimer('short-break');
+      pomodoroTimer.start('short-break');
       break;
     case MenuIds.START.LONG_BREAK:
     case MenuIds.RESTART.LONG_BREAK:
-      startTimer('long-break');
+      pomodoroTimer.start('long-break');
       break;
     case MenuIds.RESTART_CYCLE:
-      startTimer('focus');
+      pomodoroTimer.start('focus');
       break;
     case MenuIds.VIEW_HISTORY:
       chrome.runtime.openOptionsPage();
