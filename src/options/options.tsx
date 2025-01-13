@@ -1,70 +1,30 @@
 import React, { useEffect, useState } from "react";
+import { TimerState } from "../background/core/pomodoro-settings";
 
 const Options = () => {
-  const [color, setColor] = useState<string>("");
-  const [status, setStatus] = useState<string>("");
-  const [like, setLike] = useState<boolean>(false);
+  const [currentTimer, setCurrentTimer] = useState<TimerState | null>(null);
 
   useEffect(() => {
-    // Restores select box and checkbox state using the preferences
-    // stored in chrome.storage.
-    chrome.storage.sync.get(
-      {
-        favoriteColor: "red",
-        likesColor: true,
-      },
-      (items) => {
-        setColor(items.favoriteColor);
-        setLike(items.likesColor);
+    // Get current timer state
+    chrome.runtime.sendMessage({ action: 'getCurrentTimer' }, (response) => {
+      if (!response || 'error' in response) {
+        return;
       }
-    );
+      setCurrentTimer(response);
+    });
   }, []);
 
-  const saveOptions = () => {
-    // Saves options to chrome.storage.sync.
-    chrome.storage.sync.set(
-      {
-        favoriteColor: color,
-        likesColor: like,
-      },
-      () => {
-        // Update status to let user know options were saved.
-        setStatus("Options saved.");
-        const id = setTimeout(() => {
-          setStatus("");
-        }, 1000);
-        return () => clearTimeout(id);
-      }
-    );
-  };
-
   return (
-    <>
-      <div>
-        Favorite color: <select
-          value={color}
-          onChange={(event) => setColor(event.target.value)}
-        >
-          <option value="red">red</option>
-          <option value="green">green</option>
-          <option value="blue">blue</option>
-          <option value="yellow">yellow</option>
-        </select>
+    <div className="p-8">
+      {/* Debug section */}
+      <div className="mt-4 p-4 bg-gray-800 text-gray-300 rounded-lg max-w-2xl mx-auto">
+        <h3 className="text-sm font-semibold mb-2 text-gray-400">Timer State Interface:</h3>          
+        <h3 className="text-sm font-semibold mb-2 text-gray-400">Current Timer State:</h3>
+        <pre className="text-xs font-mono whitespace-pre-wrap">
+          {JSON.stringify(currentTimer, null, 2)}
+        </pre>
       </div>
-      <div>
-        <label>
-          <input
-            type="checkbox"
-            checked={like}
-            onChange={(event) => setLike(event.target.checked)}
-          />
-          I like colors.
-        </label>
-      </div>
-      <div>{status}</div>
-      <button onClick={saveOptions}>Save</button>
-      <div className="text-blue-400">Options page</div>
-    </>
+    </div>
   );
 };
 
