@@ -1,5 +1,6 @@
-import { TimerState, TimerType } from '../core/pomodoro-settings';
+import { TimerState, TimerType, TIMER_DURATIONS } from '../core/pomodoro-settings';
 import { notifyTimerComplete } from '../notifications/completion-notifications';
+import { addCompletedSession } from '../core/pomodoro-history';
 
 export class CompletionHandler {
   private lastState: TimerState | null = null;
@@ -33,6 +34,12 @@ export class CompletionHandler {
 
   private async handleCompletion(completedPhaseType: TimerType): Promise<void> {
     notifyTimerComplete(completedPhaseType);
+    
+    // Store history for focus sessions
+    if (completedPhaseType === 'focus') {
+      await addCompletedSession(TIMER_DURATIONS.focus / 60); // Convert seconds to minutes
+    }
+    
     await this.closeCompletionPages();
     await this.openCompletionPage();
   }
