@@ -1,35 +1,21 @@
-import { startTimer, stopTimer, pauseTimer, resumeTimer, isTimerRunning, isTimerPaused } from './pomodoro-timer';
-import { MenuIds, MenuItem } from './context-menu-ids';
-import { timerControls, startOptions, restartMenu, restartSubmenu, additionalItems, historyGroup } from './context-menu-items';
+import { startTimer, stopTimer, pauseTimer, resumeTimer } from './pomodoro-timer';
+import { MenuIds } from './context-menu-ids';
+import { menuStructure, MenuItem } from './context-menu-items';
+import { withMutex, Mutex } from './mutex';
 
-// Track initialization state
-let isInitializing = false;
-let pendingInitialization = false;
+// Create a mutex for context menu initialization
+const initMutex = new Mutex();
 
 export async function initializeContextMenu() {
-  if (isInitializing) {
-    pendingInitialization = true;
-    return;
-  }
-
-  try {
-    isInitializing = true;
-    await new Promise<void>((resolve) => chrome.contextMenus.removeAll(resolve));
-    await createMenuStructure();
-    await updateMenuState();
-
-    if (pendingInitialization) {
-      pendingInitialization = false;
-      isInitializing = false;
-      await initializeContextMenu();
+  await withMutex(initMutex, async () => {
+    try {
+      await new Promise<void>((resolve) => chrome.contextMenus.removeAll(resolve));
+      await createMenuStructure();
+      await updateMenuState();
+    } catch (error) {
+      console.error('Error initializing context menu:', error);
     }
-  } catch (error) {
-    console.error('Error initializing context menu:', error);
-  } finally {
-    if (!pendingInitialization) {
-      isInitializing = false;
-    }
-  }
+  });
 }
 
 async function createMenuItem(item: MenuItem) {
@@ -44,60 +30,23 @@ async function createMenuItem(item: MenuItem) {
 }
 
 async function createMenuStructure() {
-  // Create all menu items
-  for (const item of [...timerControls, ...startOptions]) {
-    await createMenuItem(item);
-  }
-
-  // Create restart menu and its submenu
-  await createMenuItem(restartMenu);
-  for (const item of restartSubmenu) {
-    await createMenuItem(item);
-  }
-
-  // Create additional items
-  for (const item of additionalItems) {
-    await createMenuItem(item);
-  }
-
-  // Create history group
-  for (const item of historyGroup) {
-    await createMenuItem(item);
+  // Flatten menu structure and create all items
+  for (const group of menuStructure) {
+    for (const item of group.items) {
+      await createMenuItem(item);
+    }
   }
 }
 
 async function updateMenuState() {
-  const isRunning = isTimerRunning();
-  const isPaused = isTimerPaused();
-
-  // Update menu visibility based on timer state
-  const updates = isRunning || isPaused
-    ? {
-        [MenuIds.RESTART.MENU]: true,
-        [MenuIds.PAUSE]: isRunning,
-        [MenuIds.RESUME]: isPaused,
-        [MenuIds.STOP]: true,
-        [MenuIds.RESTART_CYCLE]: true,
-        [MenuIds.START.FOCUS]: false,
-        [MenuIds.START.SHORT_BREAK]: false,
-        [MenuIds.START.LONG_BREAK]: false,
-        [MenuIds.VIEW_HISTORY]: true
-      }
-    : {
-        [MenuIds.RESTART.MENU]: false,
-        [MenuIds.PAUSE]: false,
-        [MenuIds.RESUME]: false,
-        [MenuIds.STOP]: false,
-        [MenuIds.RESTART_CYCLE]: false,
-        [MenuIds.START.FOCUS]: true,
-        [MenuIds.START.SHORT_BREAK]: true,
-        [MenuIds.START.LONG_BREAK]: true,
-        [MenuIds.VIEW_HISTORY]: true
-      };
-
-  // Update each menu item's visibility
-  for (const [id, visible] of Object.entries(updates)) {
-    await chrome.contextMenus.update(id, { visible });
+  // Update visibility based on menu structure
+  for (const group of menuStructure) {
+    const groupVisible = group.isVisible?.() ?? true;
+    
+    for (const item of group.items) {
+      const isVisible = groupVisible && (item.isVisible?.() ?? true);
+      await chrome.contextMenus.update(item.id, { visible: isVisible });
+    }
   }
 }
 

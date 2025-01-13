@@ -1,33 +1,108 @@
-import { MenuIds, MenuItem } from './context-menu-ids';
+import { MenuIds } from './context-menu-ids';
+import { isTimerRunning, isTimerPaused } from './pomodoro-timer';
 
-export const timerControls: MenuItem[] = [
-  { id: MenuIds.PAUSE, title: 'Pause Timer' },
-  { id: MenuIds.RESUME, title: 'Resume Timer' },
-  { id: MenuIds.STOP, title: 'Stop Timer' }
-];
+export interface MenuItem {
+  id: string;
+  title: string;
+  parentId?: string;
+  type?: 'normal' | 'separator';
+  isVisible?: () => boolean;
+  action?: () => void;
+}
 
-export const startOptions: MenuItem[] = [
-  { id: MenuIds.START.FOCUS, title: 'Start Focusing' },
-  { id: MenuIds.START.SHORT_BREAK, title: 'Start Short Break' },
-  { id: MenuIds.START.LONG_BREAK, title: 'Start Long Break' }
-];
+export interface MenuGroup {
+  items: MenuItem[];
+  isVisible?: () => boolean;
+}
 
-export const restartMenu: MenuItem = {
-  id: MenuIds.RESTART.MENU,
-  title: 'Restart Timer'
-};
+// Define menu visibility conditions
+const isTimerSet = () => isTimerRunning() || isTimerPaused();
+const isTimerNotSet = () => !isTimerSet();
 
-export const restartSubmenu: MenuItem[] = [
-  { id: MenuIds.RESTART.FOCUS, title: 'Start Focusing', parentId: MenuIds.RESTART.MENU },
-  { id: MenuIds.RESTART.SHORT_BREAK, title: 'Start Short Break', parentId: MenuIds.RESTART.MENU },
-  { id: MenuIds.RESTART.LONG_BREAK, title: 'Start Long Break', parentId: MenuIds.RESTART.MENU }
-];
-
-export const additionalItems: MenuItem[] = [
-  { id: MenuIds.RESTART_CYCLE, title: 'Restart Pomodoro Cycle' }
-];
-
-export const historyGroup: MenuItem[] = [
-  { id: MenuIds.SEPARATOR, title: '', type: 'separator' },
-  { id: MenuIds.VIEW_HISTORY, title: 'Pomodoro History' }
+// Define menu structure with visibility rules and actions
+export const menuStructure: MenuGroup[] = [
+  {
+    items: [
+      { 
+        id: MenuIds.PAUSE, 
+        title: 'Pause Timer',
+        isVisible: () => isTimerRunning()
+      },
+      { 
+        id: MenuIds.RESUME, 
+        title: 'Resume Timer',
+        isVisible: () => isTimerPaused()
+      },
+      { 
+        id: MenuIds.STOP, 
+        title: 'Stop Timer',
+        isVisible: () => isTimerSet()
+      }
+    ],
+    isVisible: () => isTimerSet()
+  },
+  {
+    items: [
+      { 
+        id: MenuIds.START.FOCUS, 
+        title: 'Start Focusing'
+      },
+      { 
+        id: MenuIds.START.SHORT_BREAK, 
+        title: 'Start Short Break'
+      },
+      { 
+        id: MenuIds.START.LONG_BREAK, 
+        title: 'Start Long Break'
+      }
+    ],
+    isVisible: isTimerNotSet
+  },
+  {
+    items: [
+      {
+        id: MenuIds.RESTART.MENU,
+        title: 'Restart Timer',
+        isVisible: () => isTimerSet()
+      },
+      {
+        id: MenuIds.RESTART.FOCUS,
+        title: 'Start Focusing',
+        parentId: MenuIds.RESTART.MENU
+      },
+      {
+        id: MenuIds.RESTART.SHORT_BREAK,
+        title: 'Start Short Break',
+        parentId: MenuIds.RESTART.MENU
+      },
+      {
+        id: MenuIds.RESTART.LONG_BREAK,
+        title: 'Start Long Break',
+        parentId: MenuIds.RESTART.MENU
+      }
+    ],
+    isVisible: () => isTimerSet()
+  },
+  {
+    items: [
+      {
+        id: MenuIds.RESTART_CYCLE,
+        title: 'Restart Pomodoro Cycle',
+        isVisible: () => isTimerSet()
+      }
+    ]
+  },
+  {
+    items: [
+      { 
+        id: MenuIds.SEPARATOR, 
+        title: '', 
+        type: 'separator' 
+      },
+      { 
+        id: MenuIds.VIEW_HISTORY, 
+        title: 'Pomodoro History'
+      }
+    ]
+  }
 ]; 
