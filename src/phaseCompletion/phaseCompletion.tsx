@@ -56,8 +56,16 @@ export default function PhaseCompletion() {
   if (!timerInfo) return null;
 
   const nextPhaseType = getNextPhaseToShow(timerInfo, currentTimer);
+  const isTimerRunning = currentTimer && currentTimer.timerStatus === 'running';
+  const isTimerPaused = currentTimer && currentTimer.timerStatus === 'paused';
 
-  const handleStartNext = () => {
+  const getPhaseText = () => {
+    const phaseText = formatPhaseText(nextPhaseType);
+    const action = isTimerRunning ? 'Pause' : isTimerPaused ? 'Resume' : 'Start';
+    return `${action} ${phaseText}`;
+  };
+
+  const handleStartOrPause = () => {
     chrome.runtime.sendMessage({ action: 'toggleTimer' }, (response) => {
       if (response && 'error' in response) {
         return;
@@ -92,7 +100,7 @@ export default function PhaseCompletion() {
       <div className="flex flex-col items-center gap-16">
         <div className="text-center">
           <h2 className="text-3xl font-medium mb-2">
-            Start {formatPhaseText(nextPhaseType)}
+            {isTimerRunning ? formatPhaseText(nextPhaseType) : getPhaseText()}
           </h2>
           <div className="w-full h-px bg-gray-200 my-4" />
           {timerInfo.sessionsToday > 0 && currentTimer && (
@@ -109,14 +117,14 @@ export default function PhaseCompletion() {
         </div>
 
         <button
-          onClick={handleStartNext}
+          onClick={handleStartOrPause}
           className={`px-8 py-3 text-white text-base font-medium rounded-full shadow-lg ${
             nextPhaseType === 'focus' 
               ? 'bg-red-600 hover:bg-red-700' 
               : 'bg-green-600 hover:bg-green-700'
           }`}
         >
-          Start {formatPhaseText(nextPhaseType)}
+          {getPhaseText()}
         </button>
 
         <div className="text-center">
@@ -134,15 +142,6 @@ export default function PhaseCompletion() {
           >
             View History
           </button>
-        </div>
-
-        {/* Debug section */}
-        <div className="hidden mt-16 p-4 bg-gray-800 text-gray-300 rounded-lg max-w-2xl mx-auto">
-          <h3 className="text-sm font-semibold mb-2 text-gray-400">Timer State Interface:</h3>          
-          <h3 className="text-sm font-semibold mb-2 text-gray-400">Current Timer State:</h3>
-          <pre className="text-xs font-mono whitespace-pre-wrap">
-            {JSON.stringify(currentTimer, null, 2)}
-          </pre>
         </div>
       </div>
     </div>
