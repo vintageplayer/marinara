@@ -71,7 +71,6 @@ export default function PhaseCompletion() {
       if (response && 'error' in response) {
         return;
       }
-      window.close();
     });
   };
 
