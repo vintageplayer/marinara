@@ -1,10 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { TimerState } from "../background/core/pomodoro-settings";
-import { PomodoroHistory } from "../background/core/pomodoro-history";
+import { PomodoroHistory, PomodoroStats, getHistoricalStats } from "../background/core/pomodoro-history";
 
 const Options = () => {
   const [currentTimer, setCurrentTimer] = useState<TimerState | null>(null);
   const [pomodoroHistory, setPomodoroHistory] = useState<PomodoroHistory | null>(null);
+  const [historicalStats, setHistoricalStats] = useState<PomodoroStats | null>(null);
+
+  // Calculate total sessions from the counted values
+  const getTotalSessions = (history: PomodoroHistory | null): number => {
+    if (!history?.durations) return 0;
+    return history.durations.reduce((total, curr) => total + curr.count, 0);
+  };
 
   useEffect(() => {
     // Get current timer state
@@ -17,11 +24,13 @@ const Options = () => {
 
     // Get pomodoro history
     chrome.storage.local.get('pomodoroHistory', (result) => {
-      console.log('pomodoroHistory', result);
       if (result.pomodoroHistory) {
         setPomodoroHistory(result.pomodoroHistory);
       }
     });
+
+    // Get historical stats
+    getHistoricalStats().then(setHistoricalStats);
   }, []);
 
   return (
@@ -42,11 +51,26 @@ const Options = () => {
           {JSON.stringify(pomodoroHistory, null, 2)}
         </pre>
         <div className="mt-4">
-          <p className="text-sm text-gray-400">Total sessions: {pomodoroHistory?.pomodoros.length || 0}</p>
-          {pomodoroHistory && pomodoroHistory.pomodoros.length > 0 && (
+          <p className="text-sm text-gray-400">Total sessions: {getTotalSessions(pomodoroHistory)}</p>
+          {pomodoroHistory && pomodoroHistory.completion_timestamps.length > 0 && (
             <p className="text-sm text-gray-400">
-              Latest session: {new Date(pomodoroHistory.pomodoros[pomodoroHistory.pomodoros.length - 1]).toLocaleString()}
+              Latest session: {new Date(pomodoroHistory.completion_timestamps[pomodoroHistory.completion_timestamps.length - 1] * 60000).toLocaleString()}
             </p>
+          )}
+          {historicalStats && (
+            <>
+              <div className="mt-2">
+                <p className="text-sm text-gray-400">Today: {historicalStats.daily} sessions</p>
+                <p className="text-sm text-gray-400">This week: {historicalStats.weekly} sessions</p>
+                <p className="text-sm text-gray-400">This month: {historicalStats.monthly} sessions</p>
+              </div>
+              <div className="mt-2">
+                <h4 className="text-sm font-semibold text-gray-400">Historical Stats Object:</h4>
+                <pre className="text-xs font-mono whitespace-pre-wrap mt-1">
+                  {JSON.stringify(historicalStats, null, 2)}
+                </pre>
+              </div>
+            </>
           )}
         </div>
       </div>
