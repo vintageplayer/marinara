@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Routes, Route, Navigate } from 'react-router';
 import { TimerState } from "../background/core/pomodoro-settings";
 import { PomodoroHistory, PomodoroStats, getHistoricalStats } from "../background/core/pomodoro-history";
-import Header from "../components/Header";
+import Header from "./Header";
 
 const Options = () => {
   const [currentTimer, setCurrentTimer] = useState<TimerState | null>(null);
