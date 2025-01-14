@@ -9,7 +9,7 @@ const Header: React.FC = () => {
   };
 
   const buttonClasses = (path: string) => `
-    px-6 py-2 
+    px-6 py-1 
     transition-all 
     rounded-[25px]
     text-base
@@ -18,15 +18,15 @@ const Header: React.FC = () => {
   `;
 
   return (
-    <header className="bg-red-700 text-white font-['Source_Sans_Pro'] font-semibold">
+    <header className="bg-red-700 text-white">
       {/* Title and Icon Row */}
       <div className="flex items-center justify-center py-4">
         <img 
-          src="/icon.png" 
-          alt="Marinara Icon" 
+          src="/icon.png"
+          alt="Marinara Icon"
           className="w-8 h-8 mr-2"
         />
-        <h1 className="text-3xl font-semibold">
+        <h1 className="text-3xl">
           Marinara: Pomodoro Assistant
         </h1>
       </div>

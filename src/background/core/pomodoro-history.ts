@@ -9,6 +9,9 @@ export interface PomodoroStats {
   daily: number;    // Sessions completed today
   weekly: number;   // Sessions completed this week
   monthly: number;  // Sessions completed this month
+  dailyAvg: number;   // Average sessions per day across all history
+  weeklyAvg: number;  // Average sessions per week across all history
+  monthlyAvg: number; // Average sessions per month across all history
 }
 
 export interface PomodoroHistory {
@@ -20,6 +23,9 @@ export interface PomodoroHistory {
 
 const STORAGE_KEY = 'pomodoroHistory';
 const CURRENT_VERSION = 1;
+const MINUTES_IN_DAY = 24 * 60;
+const MINUTES_IN_WEEK = MINUTES_IN_DAY * 7;
+const MINUTES_IN_MONTH = MINUTES_IN_DAY * 30; // Approximation
 
 // Create a singleton mutex instance for history operations
 const historyMutex = new Mutex();
@@ -30,7 +36,10 @@ const historyMutex = new Mutex();
 const createEmptyStats = (): PomodoroStats => ({
   daily: 0,
   weekly: 0,
-  monthly: 0
+  monthly: 0,
+  dailyAvg: 0,
+  weeklyAvg: 0,
+  monthlyAvg: 0
 });
 
 /**
@@ -108,6 +117,49 @@ const updatePeriodCounters = (
 };
 
 /**
+ * Calculate averages for each time period
+ */
+const calculateAverages = (
+  now: Date,
+  boundaries: { dayStart: number; weekStart: number; monthStart: number },
+  stats: PomodoroStats,
+  history: PomodoroHistory
+): void => {
+  if (history.completion_timestamps.length === 0) return;
+
+  const oldestTimestamp = history.completion_timestamps[0];
+  const latestTimestamp = history.completion_timestamps[history.completion_timestamps.length - 1];
+  const totalSessions = history.durations.reduce((sum, curr) => sum + curr.count, 0);
+
+  // Calculate daily average
+  const totalDays = Math.ceil((latestTimestamp - oldestTimestamp) / MINUTES_IN_DAY) + 1;
+  stats.dailyAvg = totalSessions / totalDays;
+
+  // Calculate weekly average aligned with calendar weeks (Sunday start)
+  const oldestDate = new Date(oldestTimestamp * 60000);
+  const latestDate = new Date(latestTimestamp * 60000);
+  
+  // Get start of the first week
+  const startOfFirstWeek = new Date(oldestDate);
+  startOfFirstWeek.setHours(0, 0, 0, 0);
+  startOfFirstWeek.setDate(oldestDate.getDate() - oldestDate.getDay()); // Roll back to Sunday
+  
+  // Get end of the last week
+  const endOfLastWeek = new Date(latestDate);
+  endOfLastWeek.setHours(23, 59, 59, 999);
+  const daysUntilEndOfWeek = 6 - latestDate.getDay(); // Days until Saturday
+  endOfLastWeek.setDate(latestDate.getDate() + daysUntilEndOfWeek);
+  
+  // Calculate total weeks
+  const totalWeeks = Math.ceil((endOfLastWeek.getTime() - startOfFirstWeek.getTime()) / (MINUTES_IN_WEEK * 60000));
+  stats.weeklyAvg = totalSessions / totalWeeks;
+
+  // Calculate monthly average
+  const totalMonths = Math.ceil((latestTimestamp - oldestTimestamp) / MINUTES_IN_MONTH);
+  stats.monthlyAvg = totalSessions / totalMonths;
+};
+
+/**
  * Get historical stats for completed pomodoros
  */
 export async function getHistoricalStats(): Promise<PomodoroStats> {
@@ -117,7 +169,8 @@ export async function getHistoricalStats(): Promise<PomodoroStats> {
       return createEmptyStats();
     }
 
-    const periodBoundaries = getTimePeriodBoundaries(new Date());
+    const now = new Date();
+    const periodBoundaries = getTimePeriodBoundaries(now);
     const stats = createEmptyStats();
     
     let currentDurationIndex = 0;
@@ -138,6 +191,9 @@ export async function getHistoricalStats(): Promise<PomodoroStats> {
 
       sessionsRemainingForDuration--;
     }
+
+    // Calculate averages
+    calculateAverages(now, periodBoundaries, stats, history);
 
     return stats;
   });

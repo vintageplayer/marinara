@@ -3,17 +3,12 @@ import { Routes, Route, Navigate } from 'react-router';
 import { TimerState } from "../background/core/pomodoro-settings";
 import { PomodoroHistory, PomodoroStats, getHistoricalStats } from "../background/core/pomodoro-history";
 import Header from "./Header";
+import History from "./History";
 
 const Options = () => {
   const [currentTimer, setCurrentTimer] = useState<TimerState | null>(null);
   const [pomodoroHistory, setPomodoroHistory] = useState<PomodoroHistory | null>(null);
   const [historicalStats, setHistoricalStats] = useState<PomodoroStats | null>(null);
-
-  // Calculate total sessions from the counted values
-  const getTotalSessions = (history: PomodoroHistory | null): number => {
-    if (!history?.durations) return 0;
-    return history.durations.reduce((total, curr) => total + curr.count, 0);
-  };
 
   useEffect(() => {
     // Get current timer state
@@ -45,38 +40,6 @@ const Options = () => {
     </div>
   );
 
-  const HistoryContent = () => (
-    <div className="mt-4 p-4 bg-gray-800 text-gray-300 rounded-lg max-w-2xl mx-auto">
-      <h3 className="text-sm font-semibold mb-2 text-gray-400">Pomodoro History:</h3>
-      <pre className="text-xs font-mono whitespace-pre-wrap">
-        {JSON.stringify(pomodoroHistory, null, 2)}
-      </pre>
-      <div className="mt-4">
-        <p className="text-sm text-gray-400">Total sessions: {getTotalSessions(pomodoroHistory)}</p>
-        {pomodoroHistory && pomodoroHistory.completion_timestamps.length > 0 && (
-          <p className="text-sm text-gray-400">
-            Latest session: {new Date(pomodoroHistory.completion_timestamps[pomodoroHistory.completion_timestamps.length - 1] * 60000).toLocaleString()}
-          </p>
-        )}
-        {historicalStats && (
-          <>
-            <div className="mt-2">
-              <p className="text-sm text-gray-400">Today: {historicalStats.daily} sessions</p>
-              <p className="text-sm text-gray-400">This week: {historicalStats.weekly} sessions</p>
-              <p className="text-sm text-gray-400">This month: {historicalStats.monthly} sessions</p>
-            </div>
-            <div className="mt-2">
-              <h4 className="text-sm font-semibold text-gray-400">Historical Stats Object:</h4>
-              <pre className="text-xs font-mono whitespace-pre-wrap mt-1">
-                {JSON.stringify(historicalStats, null, 2)}
-              </pre>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-
   const FeedbackContent = () => (
     <div className="mt-4 p-4 bg-gray-800 text-gray-300 rounded-lg max-w-2xl mx-auto">
       <h3 className="text-sm font-semibold mb-2 text-gray-400">Feedback</h3>
@@ -90,7 +53,10 @@ const Options = () => {
       <div className="p-8">
         <Routes>
           <Route path="settings" element={<SettingsContent />} />
-          <Route path="history" element={<HistoryContent />} />
+          <Route 
+            path="history" 
+            element={<History pomodoroHistory={pomodoroHistory} historicalStats={historicalStats} />} 
+          />
           <Route path="feedback" element={<FeedbackContent />} />
           <Route path="/" element={<Navigate to="history" replace />} />
         </Routes>

@@ -1,0 +1,81 @@
+import React from 'react';
+import { PomodoroHistory, PomodoroStats } from "../background/core/pomodoro-history";
+
+interface HistoryProps {
+  pomodoroHistory: PomodoroHistory | null;
+  historicalStats: PomodoroStats | null;
+}
+
+const History: React.FC<HistoryProps> = ({ pomodoroHistory, historicalStats }) => {
+  // Calculate total sessions from the counted values
+  const getTotalSessions = (history: PomodoroHistory | null): number => {
+    if (!history?.durations) return 0;
+    return history.durations.reduce((total, curr) => total + curr.count, 0);
+  };
+
+  const StatBox = ({ number, label, subtext }: { number: number, label: string, subtext?: string }) => (
+    <div className="flex flex-col items-center">
+      <div className="text-red-700 text-[30px] font-normal mb-2">
+        {number}
+      </div>
+      <div className="text-gray-600 text-sm font-semibold">
+        {label}
+      </div>
+      {subtext && (
+        <div className="text-gray-500 text-sm">
+          {subtext}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="mt-4 space-y-8 max-w-2xl mx-auto">
+      {/* Stats Grid */}
+      <div className="grid grid-cols-4 gap-8 p-4 bg-white rounded-lg shadow-sm">
+        <StatBox 
+          number={historicalStats?.daily || 0} 
+          label="Today" 
+          subtext={`${historicalStats?.dailyAvg.toFixed(2) || "0.00"} avg`}
+        />
+        <StatBox 
+          number={historicalStats?.weekly || 0} 
+          label="This Week" 
+          subtext={`${historicalStats?.weeklyAvg.toFixed(2) || "0.00"} avg`}
+        />
+        <StatBox 
+          number={historicalStats?.monthly || 0} 
+          label="In January" 
+          subtext={`${historicalStats?.monthlyAvg.toFixed(2) || "0.00"} avg`}
+        />
+        <StatBox 
+          number={getTotalSessions(pomodoroHistory)} 
+          label="Total"
+        />
+      </div>
+
+      {/* Debug Section */}
+      <div className="p-4 bg-gray-800 text-gray-300 rounded-lg">
+        <h3 className="text-sm font-semibold mb-2 text-gray-400">Debug Data:</h3>
+        <pre className="text-xs font-mono whitespace-pre-wrap">
+          {JSON.stringify(pomodoroHistory, null, 2)}
+        </pre>
+        {pomodoroHistory && pomodoroHistory.completion_timestamps.length > 0 && (
+          <p className="text-sm text-gray-400 mt-2">
+            Latest session: {new Date(pomodoroHistory.completion_timestamps[pomodoroHistory.completion_timestamps.length - 1] * 60000).toLocaleString()}
+          </p>
+        )}
+        {historicalStats && (
+          <div className="mt-2">
+            <h4 className="text-sm font-semibold text-gray-400">Historical Stats Object:</h4>
+            <pre className="text-xs font-mono whitespace-pre-wrap mt-1">
+              {JSON.stringify(historicalStats, null, 2)}
+            </pre>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default History; 
