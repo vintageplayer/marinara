@@ -186,6 +186,11 @@ export class PomodoroTimer {
     return { ...this.currentTimer };
   }
 
+  public async resetCycle(): Promise<void> {
+    await this.updateState({ focusSessionsCompleted: 0 });
+    await this.start('focus');
+  }
+
   private startInterval(): void {
     this.clearInterval();
 

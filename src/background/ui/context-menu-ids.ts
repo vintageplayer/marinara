@@ -8,6 +8,7 @@ export const MenuIds = {
     SHORT_BREAK: 'restart-short-break',
     LONG_BREAK: 'restart-long-break'
   },
+  START_CYCLE: 'start-cycle',
   START: {
     FOCUS: 'start-focus',
     SHORT_BREAK: 'start-short-break',

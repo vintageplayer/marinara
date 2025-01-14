@@ -61,6 +61,9 @@ export function handleContextMenuClick(info: chrome.contextMenus.OnClickData) {
     case MenuIds.STOP:
       pomodoroTimer.stop();
       break;
+    case MenuIds.START_CYCLE:
+      pomodoroTimer.resetCycle();
+      break;
     case MenuIds.START.FOCUS:
     case MenuIds.RESTART.FOCUS:
       pomodoroTimer.start('focus');
@@ -74,7 +77,7 @@ export function handleContextMenuClick(info: chrome.contextMenus.OnClickData) {
       pomodoroTimer.start('long-break');
       break;
     case MenuIds.RESTART_CYCLE:
-      pomodoroTimer.start('focus');
+      pomodoroTimer.resetCycle();
       break;
     case MenuIds.VIEW_HISTORY:
       chrome.runtime.openOptionsPage();

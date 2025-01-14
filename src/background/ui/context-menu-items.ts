@@ -44,6 +44,10 @@ export const menuStructure: MenuGroup[] = [
   {
     items: [
       { 
+        id: MenuIds.START_CYCLE, 
+        title: 'Start Pomodoro Cycle'
+      },
+      { 
         id: MenuIds.START.FOCUS, 
         title: 'Start Focusing'
       },
