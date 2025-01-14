@@ -1,12 +1,14 @@
 import React from "react";
-import { createRoot } from "react-dom/client";
+import ReactDOM from "react-dom";
+import { HashRouter } from "react-router";
 import Options from "./options";
 import "../assets/tailwind.css";
 
-const root = createRoot(document.getElementById("root")!);
-
-root.render(
+ReactDOM.render(
   <React.StrictMode>
-    <Options />
-  </React.StrictMode>
+    <HashRouter>
+      <Options />
+    </HashRouter>
+  </React.StrictMode>,
+  document.getElementById("root")!
 );
