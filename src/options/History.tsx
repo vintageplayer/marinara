@@ -1,10 +1,9 @@
 import React from 'react';
-import { PomodoroHistory, PomodoroStats } from "../background/core/pomodoro-history";
-
-interface HistoryProps {
-  pomodoroHistory: PomodoroHistory | null;
-  historicalStats: PomodoroStats | null;
-}
+import { PomodoroHistory } from "../background/core/pomodoro-history";
+import DailyDistribution from './DailyDistribution';
+import WeeklyDistribution from './WeeklyDistribution';
+import Heatmap from './Heatmap';
+import { HistoryProps } from './interfaces';
 
 const History: React.FC<HistoryProps> = ({ pomodoroHistory, historicalStats }) => {
   // Calculate total sessions from the counted values
@@ -52,6 +51,19 @@ const History: React.FC<HistoryProps> = ({ pomodoroHistory, historicalStats }) =
           number={getTotalSessions(pomodoroHistory)} 
           label="Total"
         />
+      </div>
+
+      {/* Distribution Charts */}
+      <div className="space-y-8">
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <DailyDistribution pomodoroHistory={pomodoroHistory} />
+        </div>
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <WeeklyDistribution pomodoroHistory={pomodoroHistory} />
+        </div>
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <Heatmap pomodoroHistory={pomodoroHistory} />
+        </div>
       </div>
 
       {/* Debug Section */}
