@@ -31,7 +31,7 @@ const History: React.FC<HistoryProps> = ({ pomodoroHistory, historicalStats }) =
   return (
     <div className="mt-4 space-y-8 max-w-2xl mx-auto">
       {/* Stats Grid */}
-      <div className="grid grid-cols-4 gap-8 p-4 bg-white rounded-lg shadow-sm">
+      <div className="grid grid-cols-4 gap-4 p-4 bg-white rounded-lg">
         <StatBox 
           number={historicalStats?.daily || 0} 
           label="Today" 
@@ -55,13 +55,13 @@ const History: React.FC<HistoryProps> = ({ pomodoroHistory, historicalStats }) =
 
       {/* Distribution Charts */}
       <div className="space-y-8">
-        <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="bg-white rounded-lg p-4">
           <DailyDistribution pomodoroHistory={pomodoroHistory} />
         </div>
-        <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="bg-white rounded-lg p-4">
           <WeeklyDistribution pomodoroHistory={pomodoroHistory} />
         </div>
-        <div className="bg-white rounded-lg shadow-sm p-4">
+        <div className="bg-white rounded-lg p-4">
           <Heatmap pomodoroHistory={pomodoroHistory} />
         </div>
       </div>
