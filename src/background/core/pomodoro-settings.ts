@@ -12,9 +12,9 @@ export interface TimerState {
 }
 
 export const TIMER_DURATIONS = {
-  focus: 25 * 60, // 25 minutes
-  shortBreak: 5 * 60, // 5 minutes
-  longBreak: 15 * 60 // 15 minutes
+  focus: 2 * 60, // 25 minutes
+  shortBreak: 1 * 60, // 5 minutes
+  longBreak: 1 * 60 // 15 minutes
 };
 
 // Constants for timer-related values

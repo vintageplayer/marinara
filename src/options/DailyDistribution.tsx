@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import EmptyState from './EmptyState';
 import { DistributionProps } from './interfaces';
 import { BarChart, ResponsiveContainer, XAxis, YAxis, Bar } from "recharts";
@@ -12,65 +12,105 @@ const availableTimeIntervals = [
   { displayName: "2 HR", durationInMinutes: 120 }
 ];
 
-const HourlyAxisTick = ({ x, y, payload, width }: any) => {
+const XAxisTickLineAndText = ({ tickText }: { tickText: string }) => {
+  return (
+    <>
+    <line y2="6" stroke="#666" strokeWidth={1} />
+    <text
+      x={0}
+      y={16}
+      dy={4}
+      textAnchor="middle"
+      fill="#666"
+      fontSize={12}
+    >
+      {tickText}
+    </text>
+    </>
+  )
+}
+
+const HourlyAxisTick = ({ x, y, payload, width, selectedInterval }: any) => {
   if (payload.value === undefined) return null;
-  const hourColumnWidth = width / 24; // Width of each hour column
-  const isLastTick = payload.index === 23;
+  const numberOfBuckets = 24 * 60 / selectedInterval;
+  const hourColumnWidth = width / numberOfBuckets; // Width of each hour column
+  const isLastTick = payload.index === numberOfBuckets - 1;
+
+  const time = JSON.parse(payload.value);
   
   return (
     <>
-    <g transform={`translate(${x - hourColumnWidth/2},${y})`}>
-      <line y2="6" stroke="#666" strokeWidth={1} />
-      <text
-        x={0}
-        y={16}
-        dy={4}
-        textAnchor="middle"
-        fill="#666"
-        fontSize={12}
-      >
-        {payload.value}
-      </text>
-    </g>
+    { time.minutesInToTheHour == 0 && <g transform={`translate(${x - hourColumnWidth/2},${y})`}>
+      <XAxisTickLineAndText tickText={time.hourWithAmPm} />
+    </g>}
+    { selectedInterval === 120 && <g transform={`translate(${x},${y})`}>
+      <XAxisTickLineAndText tickText={time.nextHourWithAmPm} />
+    </g>}
     {isLastTick && 
       <g transform={`translate(${x + hourColumnWidth/2},${y})`}>
-        <line y2="6" stroke="#666" strokeWidth={1} />
-        <text
-          x={0}
-          y={16}
-          dy={4}
-          textAnchor="middle"
-          fill="#666"
-          fontSize={12}
-        >
-          12a
-        </text>
+        <XAxisTickLineAndText tickText={`12a`} />
       </g>
     }
     </>
   );
 };
 
-const DailyDistribution: React.FC<DistributionProps> = ({ pomodoroHistory }) => {
-  const [selectedInterval, setSelectedInterval] = useState<TimeIntervalInMinutes>(30);
+const getYAxisTicks = (maxValue: number) => {
+  if (maxValue === 0) return [0, 1];
+  else {
+    const numberOfTicks = 4; // Reduced from 5 to show 5 intervals (0 to 4)
+    const tickInterval = Math.ceil(maxValue / numberOfTicks);
+    return Array.from({ length: numberOfTicks + 1 }, (_, index) => index * tickInterval);
+  }
+};
 
-  const calculateDistribution = () => {
-    if (!pomodoroHistory?.completion_timestamps.length) return null;
+interface ChartDataPoint {
+  id: string;
+  time: string;
+  value: {
+    count: number;
+    id: string;
+  };
+}
+
+const DailyDistribution: React.FC<DistributionProps> = ({ pomodoroHistory }) => {
+  const [selectedInterval, setSelectedInterval] = useState<TimeIntervalInMinutes>(60);
+  const [chartData, setChartData] = useState<ChartDataPoint[] | null>(null);
+  const [maxValue, setMaxValue] = useState<number>(0);
+  const calculateDistribution = (): { distribution: ChartDataPoint[] | null; maxValue: number } => {
+    if (!pomodoroHistory?.completion_timestamps.length) return { distribution: null, maxValue: 0 };
 
     const numberOfBuckets = 24 * 60 / selectedInterval;
 
     // Initialize data array for all intervals
     const distribution = Array.from({ length: numberOfBuckets }, (_, index) => {
       const minutesFromMidnight = index * selectedInterval;
-      const hour = Math.floor(minutesFromMidnight / 60) % 24;
-      const militaryHour = hour % 24;
-      const twelveHourFormat = militaryHour === 0 || militaryHour === 12 ? 12 : militaryHour % 12;
-      const amPmSuffix = militaryHour < 12 ? 'a' : 'p';
+      const hour = Math.floor(minutesFromMidnight / 60);
+      const minutesInToTheHour = minutesFromMidnight % 60;
+
+      const formatHour = (h: number) => {
+        h = h % 24; // Normalize to 24-hour format
+        const is12OrMidnight = h === 0 || h === 12;
+        const hourIn12Format = is12OrMidnight ? 12 : h % 12;
+        const amPmSuffix = h < 12 ? 'a' : 'p';
+        return `${hourIn12Format}${amPmSuffix}`;
+      };
+
       return {
-        time: `${twelveHourFormat}${amPmSuffix}`,
-        value: 0
+        id: `${selectedInterval}-${index}`,
+        time: JSON.stringify({
+          hourWithAmPm: formatHour(hour),
+          nextHourWithAmPm: formatHour(hour + 1), // Needed for 2hr interval
+          minutesInToTheHour,
+        }),
+        value: {
+          count: 0,
+          id: `${selectedInterval}-${index}`
+        }
       };
     });
+
+    let maxValue = 0;
 
     // Fill distribution with completion counts based on selected interval
     pomodoroHistory.completion_timestamps.forEach(timestamp => {
@@ -78,14 +118,21 @@ const DailyDistribution: React.FC<DistributionProps> = ({ pomodoroHistory }) => 
       const minutesFromMidnight = date.getHours() * 60 + date.getMinutes();
       const bucketIndex = Math.floor(minutesFromMidnight / selectedInterval);
       if (bucketIndex < distribution.length) {
-        distribution[bucketIndex].value++;
+        distribution[bucketIndex].value.count++;
+        if (distribution[bucketIndex].value.count > maxValue) {
+          maxValue = distribution[bucketIndex].value.count;
+        }
       }
     });
 
-    return distribution;
+    return { distribution, maxValue };
   };
 
-  const chartData = calculateDistribution();
+  useEffect(() => {
+    const { distribution, maxValue } = calculateDistribution();
+    setChartData(distribution);
+    setMaxValue(maxValue);
+  }, [pomodoroHistory, selectedInterval]);
 
   return (
     <div className="w-full">
@@ -124,11 +171,12 @@ const DailyDistribution: React.FC<DistributionProps> = ({ pomodoroHistory }) => 
                 bottom: 0,
               }}
               barCategoryGap={0.5}
+              key={`chart-${selectedInterval}`}
             >
               <XAxis
                 dataKey="time"
                 axisLine={{ strokeWidth: 1 }}
-                tick={(props) => <HourlyAxisTick {...props} width={610} />}
+                tick={(props) => <HourlyAxisTick {...props} width={610} selectedInterval={selectedInterval} />}
                 interval={0}
                 tickSize={0}
                 padding={{ left: 0, right: 0 }}
@@ -137,16 +185,16 @@ const DailyDistribution: React.FC<DistributionProps> = ({ pomodoroHistory }) => 
                 axisLine={{ strokeWidth: 1 }}
                 tickLine={{ stroke: "#666", strokeWidth: 1 }}
                 tick={{ fontSize: 12 }}
-                tickMargin={8}
-                domain={[0, 3]}
-                ticks={[0, 1, 2, 3]}
+                domain={[0, maxValue]}
+                ticks={getYAxisTicks(maxValue)}
                 width={30}
               />
               <Bar
-                dataKey="value"
+                dataKey="value.count"
                 fill="rgb(22, 163, 74)"
-                radius={[2, 2, 0, 0]}
-                maxBarSize={40}
+                key={`bar-${selectedInterval}`}
+                name={`${selectedInterval}min-intervals`}
+                isAnimationActive={false}
               />
             </BarChart>
           </ResponsiveContainer>
