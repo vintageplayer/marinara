@@ -8,3 +8,13 @@ export interface HistoryProps {
 export interface DistributionProps {
   pomodoroHistory: PomodoroHistory | null;
 } 
+
+export interface ChartDataPoint {
+    id: string;
+    time: string;
+    value: {
+      count: number;
+      id: string;
+    };
+  }
+  

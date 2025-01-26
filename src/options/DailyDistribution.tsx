@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import EmptyState from './EmptyState';
-import { DistributionProps } from './interfaces';
+import { DistributionProps, ChartDataPoint } from './interfaces';
 import { BarChart, ResponsiveContainer, XAxis, YAxis, Bar } from "recharts";
 
 type TimeIntervalInMinutes = 15 | 30 | 60 | 120;
@@ -30,7 +30,7 @@ const XAxisTickLineAndText = ({ tickText }: { tickText: string }) => {
   )
 }
 
-const HourlyAxisTick = ({ x, y, payload, width, selectedInterval }: any) => {
+const HourlyXAxisTick = ({ x, y, payload, width, selectedInterval }: any) => {
   if (payload.value === undefined) return null;
   const numberOfBuckets = 24 * 60 / selectedInterval;
   const hourColumnWidth = width / numberOfBuckets; // Width of each hour column
@@ -63,15 +63,6 @@ const getYAxisTicks = (maxValue: number) => {
     return Array.from({ length: numberOfTicks + 1 }, (_, index) => index * tickInterval);
   }
 };
-
-interface ChartDataPoint {
-  id: string;
-  time: string;
-  value: {
-    count: number;
-    id: string;
-  };
-}
 
 const DailyDistribution: React.FC<DistributionProps> = ({ pomodoroHistory }) => {
   const [selectedInterval, setSelectedInterval] = useState<TimeIntervalInMinutes>(60);
@@ -176,7 +167,7 @@ const DailyDistribution: React.FC<DistributionProps> = ({ pomodoroHistory }) => 
               <XAxis
                 dataKey="time"
                 axisLine={{ strokeWidth: 1 }}
-                tick={(props) => <HourlyAxisTick {...props} width={610} selectedInterval={selectedInterval} />}
+                tick={(props) => <HourlyXAxisTick {...props} width={610} selectedInterval={selectedInterval} />}
                 interval={0}
                 tickSize={0}
                 padding={{ left: 0, right: 0 }}
@@ -185,7 +176,6 @@ const DailyDistribution: React.FC<DistributionProps> = ({ pomodoroHistory }) => 
                 axisLine={{ strokeWidth: 1 }}
                 tickLine={{ stroke: "#666", strokeWidth: 1 }}
                 tick={{ fontSize: 12 }}
-                domain={[0, maxValue]}
                 ticks={getYAxisTicks(maxValue)}
                 width={30}
               />
