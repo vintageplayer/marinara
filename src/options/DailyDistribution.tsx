@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import EmptyState from './EmptyState';
 import { DistributionProps, ChartDataPoint } from './interfaces';
-import { BarChart, ResponsiveContainer, XAxis, YAxis, Bar } from "recharts";
+import { BarChart, ResponsiveContainer, XAxis, YAxis, Bar, Tooltip } from "recharts";
+import { format } from 'date-fns';
 
 type TimeIntervalInMinutes = 15 | 30 | 60 | 120;
 
@@ -62,6 +63,43 @@ const getYAxisTicks = (maxValue: number) => {
     const tickInterval = Math.ceil(maxValue / numberOfTicks);
     return Array.from({ length: numberOfTicks + 1 }, (_, index) => index * tickInterval);
   }
+};
+
+const formatTimeRange = (time: string, intervalInMinutes: number): string => {
+  const { hourWithAmPm } = JSON.parse(time);
+  const hour = parseInt(hourWithAmPm.slice(0, -1));
+  const ampm = hourWithAmPm.slice(-1);
+  
+  const startTime = new Date();
+  startTime.setHours(ampm === 'a' ? (hour === 12 ? 0 : hour) : (hour === 12 ? 12 : hour + 12));
+  startTime.setMinutes(0);
+  startTime.setSeconds(0);
+  
+  const endTime = new Date(startTime);
+  endTime.setMinutes(startTime.getMinutes() + intervalInMinutes);
+
+  const formatTime = (date: Date) => {
+    const hours = date.getHours();
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    const displayHours = hours % 12 || 12;
+    return `${displayHours}:00${ampm}`;
+  };
+  
+  return `${formatTime(startTime)}\u2014${formatTime(endTime)}`;
+};
+
+const CustomTooltip = ({ active, payload, label, selectedInterval }: any) => {
+  if (active && payload && payload.length) {
+    const count = payload[0].value;
+    const timeRange = formatTimeRange(label, selectedInterval);
+    return (
+      <div className="bg-gray-900 text-white px-2 py-1 rounded text-sm">
+        <span>{count} {count === 1 ? 'Pomodoro' : 'Pomodoros'}</span>
+        <span className="text-gray-300"> between {timeRange}</span>
+      </div>
+    );
+  }
+  return null;
 };
 
 const DailyDistribution: React.FC<DistributionProps> = ({ pomodoroHistory }) => {
@@ -178,6 +216,17 @@ const DailyDistribution: React.FC<DistributionProps> = ({ pomodoroHistory }) => 
                 tick={{ fontSize: 12 }}
                 ticks={getYAxisTicks(maxValue)}
                 width={30}
+              />
+              <Tooltip 
+                content={({ active, payload, label }) => (
+                  <CustomTooltip 
+                    active={active} 
+                    payload={payload} 
+                    label={label} 
+                    selectedInterval={selectedInterval}
+                  />
+                )}
+                cursor={{ fill: 'transparent' }}
               />
               <Bar
                 dataKey="value.count"
