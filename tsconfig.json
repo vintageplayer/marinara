@@ -2,7 +2,7 @@
     "compilerOptions": {
         "strict": true,
         "target": "es6",
-        "moduleResolution": "bundler",
+        "moduleResolution": "node",
         "module": "ES6",
         "esModuleInterop": true,
         "sourceMap": false,
@@ -10,6 +10,18 @@
         "outDir": "dist/js",
         "noEmitOnError": true,
         "jsx": "react",
-        "typeRoots": [ "node_modules/@types" ]
-    }
+        "skipLibCheck": true,
+        "allowJs": true,
+        "resolveJsonModule": true,
+        "baseUrl": ".",
+        "paths": {
+            "*": ["node_modules/*"]
+        }
+    },
+    "include": [
+        "src/**/*"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
 }
