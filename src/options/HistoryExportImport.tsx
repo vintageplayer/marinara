@@ -1,65 +1,97 @@
-import React, { useState, useEffect } from 'react';
-import { PomodoroHistory } from "../background/core/pomodoro-history";
+import React from 'react';
+import { PomodoroHistory, clearSessionHistory } from "../background/core/pomodoro-history";
 
 interface HistoryExportImportProps {
   pomodoroHistory: PomodoroHistory | null;
 }
 
+interface HistoryButton {
+  label: string;
+  description: string;
+  onClick?: () => void;
+}
+
+interface ExportData {
+  durations: number[];
+  pomodoros: number[];
+  timezones: number[];
+  version: number;
+}
+
+// Constants
+const BUTTON_STYLE = "flex-none w-[185px] text-[15px] cursor-pointer bg-transparent text-[#555] px-[10px] py-[10px] border border-[#555] rounded-[40px] hover:text-[#a00] hover:border-[#a00] focus:outline-none";
+const CSV_HEADER = 'End (ISO 8601),End Date,End Time (24 Hour),End Timestamp (Unix),End Timezone (UTC Offset Minutes),Duration (Seconds)';
+const CLEAR_HISTORY_CONFIRMATION = 'Permanently delete all Pomodoro history?';
+
+const HistoryButton: React.FC<HistoryButton> = ({ label, description, onClick }) => (
+  <div className="flex items-center gap-4">
+    <button 
+      onClick={onClick}
+      className={BUTTON_STYLE}
+    >
+      {label}
+    </button>
+    <span className="text-sm text-gray-600">{description}</span>
+  </div>
+);
+
 const HistoryExportImport: React.FC<HistoryExportImportProps> = ({ pomodoroHistory }) => {
-  const handleExport = () => {
+  // Helper function to download a file
+  const downloadFile = (content: string, filename: string, type: string) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Helper function to format timezone offset
+  const formatTimezoneOffset = (offsetInMinutes: number): string => {
+    const sign = offsetInMinutes <= 0 ? '+' : '-';
+    const absOffset = Math.abs(offsetInMinutes);
+    const hours = Math.floor(absOffset / 60).toString().padStart(2, '0');
+    const minutes = (absOffset % 60).toString().padStart(2, '0');
+    return `${sign}${hours}:${minutes}`;
+  };
+
+  const createExportData = (): ExportData | null => {
     if (!pomodoroHistory) {
       console.warn('No history data available to export');
-      return;
+      return null;
     }
 
-    // Create the export data object using actual history data
-    const exportData = {
+    return {
       durations: pomodoroHistory.durations.map(d => d.value),
       pomodoros: pomodoroHistory.completion_timestamps,
       timezones: pomodoroHistory.timezones.map(t => t.value),
       version: pomodoroHistory.version
     };
-
-    // Convert the data to a JSON string
-    const jsonString = JSON.stringify(exportData);
-
-    // Create a blob with the JSON data
-    const blob = new Blob([jsonString], { type: 'application/json' });
-
-    // Create a URL for the blob
-    const url = URL.createObjectURL(blob);
-
-    // Create a temporary anchor element
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'pomodoro_history.json';
-
-    // Append the link to the body
-    document.body.appendChild(link);
-
-    // Trigger the download
-    link.click();
-
-    // Clean up
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
-  const handleCsvExport = () => {
+  const handleExport = () => {
+    const exportData = createExportData();
+    if (!exportData) return;
+
+    const jsonString = JSON.stringify(exportData);
+    downloadFile(jsonString, 'pomodoro_history.json', 'application/json');
+  };
+
+  const createCsvContent = (): string | null => {
     if (!pomodoroHistory) {
       console.warn('No history data available to export');
-      return;
+      return null;
     }
 
-    // CSV Header
-    const csvRows = ['End (ISO 8601),End Date,End Time (24 Hour),End Timestamp (Unix),End Timezone (UTC Offset Minutes),Duration (Seconds)'];
-
-    // Create rows for each pomodoro session
+    const csvRows = [CSV_HEADER];
     let durationIndex = 0;
     let sessionsRemainingForDuration = 0;
     let currentDuration = 0;
 
-    pomodoroHistory.completion_timestamps.forEach((timestamp, index) => {
+    pomodoroHistory.completion_timestamps.forEach(timestamp => {
       // Get the duration for this timestamp
       if (sessionsRemainingForDuration === 0) {
         if (durationIndex < pomodoroHistory.durations.length) {
@@ -95,27 +127,44 @@ const HistoryExportImport: React.FC<HistoryExportImportProps> = ({ pomodoroHisto
       sessionsRemainingForDuration--;
     });
 
-    // Create and download the CSV file
-    const csvContent = csvRows.join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'pomodoro_history.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    return csvRows.join('\n');
   };
 
-  // Helper function to format timezone offset
-  const formatTimezoneOffset = (offsetInMinutes: number): string => {
-    const sign = offsetInMinutes <= 0 ? '+' : '-';
-    const absOffset = Math.abs(offsetInMinutes);
-    const hours = Math.floor(absOffset / 60).toString().padStart(2, '0');
-    const minutes = (absOffset % 60).toString().padStart(2, '0');
-    return `${sign}${hours}:${minutes}`;
+  const handleCsvExport = () => {
+    const csvContent = createCsvContent();
+    if (!csvContent) return;
+
+    downloadFile(csvContent, 'pomodoro_history.csv', 'text/csv;charset=utf-8;');
   };
+
+  const handleClearHistory = async () => {
+    if (confirm(CLEAR_HISTORY_CONFIRMATION)) {
+      await clearSessionHistory();
+      window.location.reload();
+    }
+  };
+
+  const buttons: HistoryButton[] = [
+    {
+      label: 'Save as CSV',
+      description: 'Use with Excel, Google Sheets, or other spreadsheet software.',
+      onClick: handleCsvExport
+    },
+    {
+      label: 'Export',
+      description: 'For backup or for importing on another computer.',
+      onClick: handleExport
+    },
+    {
+      label: 'Import',
+      description: 'Import & merge Pomodoro history from an exported file.'
+    },
+    {
+      label: 'Clear History',
+      description: 'Permanently delete all Pomodoro history.',
+      onClick: handleClearHistory
+    }
+  ];
 
   return (
     <div className="w-full">
@@ -125,41 +174,15 @@ const HistoryExportImport: React.FC<HistoryExportImportProps> = ({ pomodoroHisto
       <div className="w-full border-b border-gray-200 mb-4"></div>
 
       <div className="space-y-2">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={handleCsvExport}
-            className="flex-none w-[185px] text-[15px] cursor-pointer bg-transparent text-[#555] px-[10px] py-[10px] border border-[#555] rounded-[40px] hover:text-[#a00] hover:border-[#a00] focus:outline-none"
-          >
-            Save as CSV
-          </button>
-          <span className="text-sm text-gray-600">Use with Excel, Google Sheets, or other spreadsheet software.</span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={handleExport}
-            className="flex-none w-[185px] text-[15px] cursor-pointer bg-transparent text-[#555] px-[10px] py-[10px] border border-[#555] rounded-[40px] hover:text-[#a00] hover:border-[#a00] focus:outline-none"
-          >
-            Export
-          </button>
-          <span className="text-sm text-gray-600">For backup or for importing on another computer.</span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <button className="flex-none w-[185px] text-[15px] cursor-pointer bg-transparent text-[#555] px-[10px] py-[10px] border border-[#555] rounded-[40px] hover:text-[#a00] hover:border-[#a00] focus:outline-none">
-            Import
-          </button>
-          <span className="text-sm text-gray-600">Import & merge Pomodoro history from an exported file.</span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <button className="flex-none w-[185px] text-[15px] cursor-pointer bg-transparent text-[#555] px-[10px] py-[10px] border border-[#555] rounded-[40px] hover:text-[#a00] hover:border-[#a00] focus:outline-none">
-            Clear History
-          </button>
-          <span className="text-sm text-gray-600">Permanently delete all Pomodoro history.</span>
-        </div>
+        {buttons.map((button, index) => (
+          <HistoryButton
+            key={index}
+            label={button.label}
+            description={button.description}
+            onClick={button.onClick}
+          />
+        ))}
       </div>
-
     </div>
   );
 };
