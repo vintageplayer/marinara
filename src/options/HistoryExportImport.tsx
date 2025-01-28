@@ -1,5 +1,13 @@
 import React from 'react';
-import { PomodoroHistory, clearSessionHistory } from "../background/core/pomodoro-history";
+import { 
+  PomodoroHistory, 
+  clearSessionHistory, 
+  ImportData, 
+  mergeHistory, 
+  createExportData,
+  createCsvData,
+  CsvRow
+} from "../background/core/pomodoro-history";
 
 interface HistoryExportImportProps {
   pomodoroHistory: PomodoroHistory | null;
@@ -11,17 +19,11 @@ interface HistoryButton {
   onClick?: () => void;
 }
 
-interface ExportData {
-  durations: number[];
-  pomodoros: number[];
-  timezones: number[];
-  version: number;
-}
-
 // Constants
 const BUTTON_STYLE = "flex-none w-[185px] text-[15px] cursor-pointer bg-transparent text-[#555] px-[10px] py-[10px] border border-[#555] rounded-[40px] hover:text-[#a00] hover:border-[#a00] focus:outline-none";
 const CSV_HEADER = 'End (ISO 8601),End Date,End Time (24 Hour),End Timestamp (Unix),End Timezone (UTC Offset Minutes),Duration (Seconds)';
 const CLEAR_HISTORY_CONFIRMATION = 'Permanently delete all Pomodoro history?';
+const MERGE_CONFIRMATION = 'Merge the imported history with your existing history?';
 
 const HistoryButton: React.FC<HistoryButton> = ({ label, description, onClick }) => (
   <div className="flex items-center gap-4">
@@ -49,92 +51,126 @@ const HistoryExportImport: React.FC<HistoryExportImportProps> = ({ pomodoroHisto
     URL.revokeObjectURL(url);
   };
 
-  // Helper function to format timezone offset
-  const formatTimezoneOffset = (offsetInMinutes: number): string => {
-    const sign = offsetInMinutes <= 0 ? '+' : '-';
-    const absOffset = Math.abs(offsetInMinutes);
-    const hours = Math.floor(absOffset / 60).toString().padStart(2, '0');
-    const minutes = (absOffset % 60).toString().padStart(2, '0');
-    return `${sign}${hours}:${minutes}`;
-  };
+  // Helper function to read a file
+  const readFile = async (acceptFileType: string): Promise<string | null> => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = acceptFileType;
+    input.style.cssText = 'display: none; width: 0; height: 0';
 
-  const createExportData = (): ExportData | null => {
-    if (!pomodoroHistory) {
-      console.warn('No history data available to export');
-      return null;
+    let cancelTimeout: NodeJS.Timeout | null = null;
+    let onBodyFocusIn: (() => void) | null = null;
+
+    try {
+      return await new Promise((resolve, reject) => {
+        input.onchange = e => {
+          if (cancelTimeout) clearTimeout(cancelTimeout);
+
+          const file = (e.target as HTMLInputElement).files?.[0];
+          if (!file) {
+            resolve(null);
+            return;
+          }
+
+          const reader = new FileReader();
+          reader.onload = f => {
+            resolve(f.target?.result as string);
+          };
+
+          reader.readAsText(file);
+        };
+
+        input.onabort = () => resolve(null);
+        input.onclose = () => resolve(null);
+        input.oncancel = () => resolve(null);
+        input.onerror = e => reject(e);
+
+        // Handle file dialog cancellation
+        onBodyFocusIn = () => {
+          if (!cancelTimeout) {
+            cancelTimeout = setTimeout(() => {
+              if (input.value.length === 0) {
+                resolve(null);
+              }
+            }, 5000);
+          }
+        };
+
+        document.body.addEventListener('focusin', onBodyFocusIn);
+        document.body.appendChild(input);
+        input.click();
+      });
+    } finally {
+      document.body.removeChild(input);
+      if (onBodyFocusIn) {
+        document.body.removeEventListener('focusin', onBodyFocusIn);
+      }
     }
-
-    return {
-      durations: pomodoroHistory.durations.map(d => d.value),
-      pomodoros: pomodoroHistory.completion_timestamps,
-      timezones: pomodoroHistory.timezones.map(t => t.value),
-      version: pomodoroHistory.version
-    };
   };
 
   const handleExport = () => {
-    const exportData = createExportData();
-    if (!exportData) return;
+    if (!pomodoroHistory) {
+      console.warn('No history data available to export');
+      return;
+    }
 
+    const exportData = createExportData(pomodoroHistory);
     const jsonString = JSON.stringify(exportData);
     downloadFile(jsonString, 'pomodoro_history.json', 'application/json');
   };
 
-  const createCsvContent = (): string | null => {
+  const handleCsvExport = () => {
     if (!pomodoroHistory) {
       console.warn('No history data available to export');
-      return null;
+      return;
     }
 
-    const csvRows = [CSV_HEADER];
-    let durationIndex = 0;
-    let sessionsRemainingForDuration = 0;
-    let currentDuration = 0;
+    const rows = createCsvData(pomodoroHistory);
+    const csvRows = [
+      CSV_HEADER,
+      ...rows.map(row => [
+        row.isoDate,
+        row.dateStr,
+        row.timeStr,
+        row.timestamp,
+        row.timezoneOffset,
+        row.duration
+      ].join(','))
+    ];
 
-    pomodoroHistory.completion_timestamps.forEach(timestamp => {
-      // Get the duration for this timestamp
-      if (sessionsRemainingForDuration === 0) {
-        if (durationIndex < pomodoroHistory.durations.length) {
-          currentDuration = pomodoroHistory.durations[durationIndex].value;
-          sessionsRemainingForDuration = pomodoroHistory.durations[durationIndex].count;
-          durationIndex++;
-        }
-      }
-
-      // Get timezone offset for this timestamp
-      const timezoneOffset = pomodoroHistory.timezones.length > 0 ? 
-        pomodoroHistory.timezones[pomodoroHistory.timezones.length - 1].value : 
-        new Date().getTimezoneOffset();
-
-      // Convert timestamp (in minutes) to Date object
-      const date = new Date(timestamp * 60000);
-      
-      // Format the row data
-      const isoDate = date.toISOString().replace('Z', formatTimezoneOffset(timezoneOffset));
-      const dateStr = date.toISOString().split('T')[0];
-      const timeStr = date.toTimeString().split(' ')[0];
-      
-      const row = [
-        isoDate,
-        dateStr,
-        timeStr,
-        timestamp * 60,
-        timezoneOffset,
-        currentDuration * 60
-      ].join(',');
-
-      csvRows.push(row);
-      sessionsRemainingForDuration--;
-    });
-
-    return csvRows.join('\n');
+    downloadFile(csvRows.join('\n'), 'pomodoro_history.csv', 'text/csv;charset=utf-8;');
   };
 
-  const handleCsvExport = () => {
-    const csvContent = createCsvContent();
-    if (!csvContent) return;
+  const handleImport = async () => {
+    try {
+      const content = await readFile('.json');
+      if (!content) return;
 
-    downloadFile(csvContent, 'pomodoro_history.csv', 'text/csv;charset=utf-8;');
+      let importedData: ImportData;
+      try {
+        importedData = JSON.parse(content);
+      } catch (e) {
+        alert('Invalid JSON file format');
+        return;
+      }
+
+      // Validate imported data structure
+      if (!importedData.durations || !importedData.pomodoros || !importedData.timezones || !importedData.version) {
+        alert('Invalid history file format');
+        return;
+      }
+
+      if (!confirm(MERGE_CONFIRMATION)) return;
+
+      // Merge the imported history with existing history
+      await mergeHistory(importedData);
+
+      // Refresh the page to show updated history
+      window.location.reload();
+    } catch (error) {
+      console.error('Error importing history:', error);
+      alert('Error importing history file');
+    }
   };
 
   const handleClearHistory = async () => {
@@ -157,7 +193,8 @@ const HistoryExportImport: React.FC<HistoryExportImportProps> = ({ pomodoroHisto
     },
     {
       label: 'Import',
-      description: 'Import & merge Pomodoro history from an exported file.'
+      description: 'Import & merge Pomodoro history from an exported file.',
+      onClick: handleImport
     },
     {
       label: 'Clear History',

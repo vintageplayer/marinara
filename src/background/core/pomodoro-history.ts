@@ -21,6 +21,22 @@ export interface PomodoroHistory {
   version: number;
 }
 
+export interface ImportData {
+  durations: number[];  // Array of pairs [count1, value1, count2, value2, ...]
+  pomodoros: number[];
+  timezones: number[];  // Array of pairs [count1, value1, count2, value2, ...]
+  version: number;
+}
+
+export interface CsvRow {
+  isoDate: string;
+  dateStr: string;
+  timeStr: string;
+  timestamp: number;
+  timezoneOffset: number;
+  duration: number;
+}
+
 const STORAGE_KEY = 'pomodoroHistory';
 const CURRENT_VERSION = 1;
 const MINUTES_IN_DAY = 24 * 60;
@@ -234,4 +250,123 @@ export async function getSessionHistory(): Promise<PomodoroHistory> {
 
 export async function clearSessionHistory(): Promise<void> {
   await chrome.storage.local.remove(STORAGE_KEY);
+}
+
+/**
+ * Merges imported history data with existing history
+ */
+export async function mergeHistory(importedData: ImportData): Promise<void> {
+  await withMutex(historyMutex, async () => {
+    const currentHistory = await getSessionHistory();
+
+    // Convert the pairs of values to CountedValue format
+    const durations = [];
+    for (let i = 0; i < importedData.durations.length; i += 2) {
+      durations.push({
+        count: importedData.durations[i],
+        value: importedData.durations[i + 1]
+      });
+    }
+
+    const timezones = [];
+    for (let i = 0; i < importedData.timezones.length; i += 2) {
+      timezones.push({
+        count: importedData.timezones[i],
+        value: importedData.timezones[i + 1]
+      });
+    }
+
+    // Create the merged history
+    const mergedHistory: PomodoroHistory = {
+      completion_timestamps: [...currentHistory.completion_timestamps, ...importedData.pomodoros].sort((a, b) => a - b),
+      durations: [...currentHistory.durations, ...durations],
+      timezones: [...currentHistory.timezones, ...timezones],
+      version: importedData.version
+    };
+
+    // Store the merged history
+    await chrome.storage.local.set({ [STORAGE_KEY]: mergedHistory });
+  });
+}
+
+/**
+ * Creates export data from history in the format needed for JSON export
+ */
+export function createExportData(history: PomodoroHistory): ImportData {
+  // Convert durations to pairs of values
+  const durations: number[] = [];
+  history.durations.forEach(d => {
+    durations.push(d.count, d.value);
+  });
+
+  // Convert timezones to pairs of values
+  const timezones: number[] = [];
+  history.timezones.forEach(t => {
+    timezones.push(t.count, t.value);
+  });
+
+  return {
+    durations,
+    pomodoros: history.completion_timestamps,
+    timezones,
+    version: history.version
+  };
+}
+
+/**
+ * Helper function to format timezone offset
+ */
+const formatTimezoneOffset = (offsetInMinutes: number): string => {
+  const sign = offsetInMinutes <= 0 ? '+' : '-';
+  const absOffset = Math.abs(offsetInMinutes);
+  const hours = Math.floor(absOffset / 60).toString().padStart(2, '0');
+  const minutes = (absOffset % 60).toString().padStart(2, '0');
+  return `${sign}${hours}:${minutes}`;
+};
+
+/**
+ * Creates CSV data from history
+ */
+export function createCsvData(history: PomodoroHistory): CsvRow[] {
+  const rows: CsvRow[] = [];
+  let durationIndex = 0;
+  let sessionsRemainingForDuration = 0;
+  let currentDuration = 0;
+
+  history.completion_timestamps.forEach(timestamp => {
+    // Get the duration for this timestamp
+    if (sessionsRemainingForDuration === 0) {
+      if (durationIndex < history.durations.length) {
+        currentDuration = history.durations[durationIndex].value;
+        sessionsRemainingForDuration = history.durations[durationIndex].count;
+        durationIndex++;
+      }
+    }
+
+    // Get timezone offset for this timestamp
+    const timezoneOffset = history.timezones.length > 0 ? 
+      history.timezones[history.timezones.length - 1].value : 
+      new Date().getTimezoneOffset();
+
+    // Convert timestamp (in minutes) to Date object
+    const date = new Date(timestamp * 60000);
+    
+    // Format the row data
+    const isoDate = date.toISOString().replace('Z', formatTimezoneOffset(timezoneOffset));
+    const dateStr = date.toISOString().split('T')[0];
+    const timeStr = date.toTimeString().split(' ')[0];
+    
+    rows.push({
+      isoDate,
+      dateStr,
+      timeStr,
+      timestamp: timestamp * 60,
+      timezoneOffset,
+      duration: currentDuration * 60
+    });
+
+    sessionsRemainingForDuration--;
+  });
+
+  return rows;
 } 
