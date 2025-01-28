@@ -3,6 +3,7 @@ import { CompletionHandler } from '../managers/completion-handler';
 import { BadgeManager } from '../managers/badge-manager';
 import { TimerStateStorage } from '../managers/timer-state-storage';
 import { ContextMenuManager } from '../managers/context-menu-manager';
+import { getHistoricalStats } from './pomodoro-history';
 import { 
   getTimerDuration, 
   calculateRemainingTime, 
@@ -27,28 +28,6 @@ export class PomodoroTimer {
     this.initialize();
   }
 
-  private async initialize(): Promise<void> {
-    try {
-      const storedState = await this.stateStorage.loadState();
-      if (storedState) {
-        await this.updateState({
-          ...this.createDefaultState(),
-          ...storedState
-        });
-        
-        if (this.currentTimer.timerStatus === 'running') {
-          this.startInterval();
-        }
-      } else {
-        console.warn('No valid timer state in storage, using default');
-        await this.updateState(this.createDefaultState());
-      }
-    } catch (error) {
-      console.error('Error initializing timer:', error);
-      await this.updateState(this.createDefaultState());
-    }
-  }
-
   private createDefaultState(): TimerState {
     return {
       timerStatus: 'stopped',
@@ -56,9 +35,56 @@ export class PomodoroTimer {
       lastCompletedPhaseType: null,
       endTime: null,
       remainingTime: null,
-      focusSessionsCompleted: 0,
-      totalCycles: 0
+      sessionsToday: 0,
+      lastSessionDate: ''  // This will be set during initialization
     };
+  }
+
+  private async initialize(): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
+    try {
+      // Get today's sessions from history
+      const stats = await getHistoricalStats();
+      const todaysSessions = stats.daily;
+
+      const storedState = await this.stateStorage.loadState();
+      
+      if (storedState) {
+        // Check if we need to reset daily sessions (new day)
+        const shouldResetDaily = storedState.lastSessionDate !== today;
+        
+        if (shouldResetDaily) {
+          await this.updateState({
+            ...storedState,
+            sessionsToday: 0,
+            lastSessionDate: today
+          });
+        } else {
+          await this.updateState({
+            ...storedState,
+            sessionsToday: todaysSessions // Use the count from history
+          });
+        }
+      } else {
+        // No stored state, create a fresh one
+        await this.updateState({
+          ...this.createDefaultState(),
+          lastSessionDate: today,
+          sessionsToday: todaysSessions // Use the count from history
+        });
+      }
+
+      // Start interval if timer was running
+      if (this.currentTimer.timerStatus === 'running') {
+        this.startInterval();
+      }
+    } catch (error) {
+      console.error('Error initializing timer:', error);
+      await this.updateState({
+        ...this.createDefaultState(),
+        lastSessionDate: today
+      });
+    }
   }
 
   private async updateState(timerStateUpdates: Partial<TimerState>): Promise<void> {
@@ -67,6 +93,16 @@ export class PomodoroTimer {
         ...this.currentTimer,
         ...timerStateUpdates,
       };
+
+      // Ensure sessionsToday is never undefined or null
+      if (typeof newTimerState.sessionsToday !== 'number') {
+        newTimerState.sessionsToday = 0;
+      }
+
+      // Ensure lastSessionDate is never empty
+      if (!newTimerState.lastSessionDate) {
+        newTimerState.lastSessionDate = new Date().toISOString().split('T')[0];
+      }
 
       if (!validateTimerState(newTimerState)) {
         throw new TimerError('Invalid timer state update');
@@ -81,8 +117,10 @@ export class PomodoroTimer {
       await this.stateStorage.saveState(this.currentTimer);
     } catch (error) {
       console.error('Error updating timer state:', error);
-      this.currentTimer = this.createDefaultState();
-      await this.updateState(this.createDefaultState());
+      await this.updateState({
+        ...this.createDefaultState(),
+        lastSessionDate: new Date().toISOString().split('T')[0]
+      });
     }
   }
 
@@ -104,7 +142,7 @@ export class PomodoroTimer {
     }
 
     if (lastCompletedPhaseType === 'focus') {
-      return (this.currentTimer.focusSessionsCompleted) >= FOCUS_SESSIONS_BEFORE_LONG_BREAK 
+      return (this.currentTimer.sessionsToday % FOCUS_SESSIONS_BEFORE_LONG_BREAK === 0) 
         ? 'long-break' 
         : 'short-break';
     }
@@ -187,7 +225,7 @@ export class PomodoroTimer {
   }
 
   public async resetCycle(): Promise<void> {
-    await this.updateState({ focusSessionsCompleted: 0 });
+    await this.updateState({ sessionsToday: 0 });
     await this.start('focus');
   }
 
@@ -238,15 +276,19 @@ export class PomodoroTimer {
   }
 
   private async updateCompletionStats(phaseType: TimerType): Promise<void> {
+    const today = new Date().toISOString().split('T')[0];
     const updates: Partial<TimerState> = {
-      lastCompletedPhaseType: phaseType
+      lastCompletedPhaseType: phaseType,
+      lastSessionDate: today
     };
     
     if (phaseType === 'focus') {
-      updates.focusSessionsCompleted = this.currentTimer.focusSessionsCompleted + 1;
-    } else if (phaseType === 'long-break') {
-      updates.focusSessionsCompleted = 0;
-      updates.totalCycles = this.currentTimer.totalCycles + 1;
+      // Check if we need to reset daily sessions (new day)
+      if (this.currentTimer.lastSessionDate !== today) {
+        updates.sessionsToday = 1;
+      } else {
+        updates.sessionsToday = this.currentTimer.sessionsToday + 1;
+      }
     }
     
     await this.updateState(updates);

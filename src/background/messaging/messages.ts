@@ -44,7 +44,7 @@ export function initializeMessageHandlers() {
             
             sendResponse({
               type: nextType,
-              sessionsToday: timer.focusSessionsCompleted
+              sessionsToday: timer.sessionsToday
             });
           } catch (error) {
             console.error('Error getting next phase info:', error);

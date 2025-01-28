@@ -7,8 +7,8 @@ export interface TimerState {
   lastCompletedPhaseType: TimerType | null;
   endTime: number | null;
   remainingTime: number | null;
-  focusSessionsCompleted: number;  // Number of focus sessions completed before long break
-  totalCycles: number;             // Total number of completed pomodoro cycles
+  sessionsToday: number;      // Number of focus sessions completed today
+  lastSessionDate: string;    // ISO date string of the last completed session
 }
 
 export const TIMER_DURATIONS = {

@@ -104,10 +104,10 @@ export default function PhaseCompletion() {
           <div className="w-full h-px bg-gray-200 my-4" />
           {timerInfo.sessionsToday > 0 && currentTimer && (
             <div className="text-gray-600 text-lg">
-              {currentTimer.focusSessionsCompleted > 0 && nextPhaseType != 'long-break' && (
+              {nextPhaseType === 'focus' && (
                 <span>
-                  {FOCUS_SESSIONS_BEFORE_LONG_BREAK - currentTimer.focusSessionsCompleted} {' '}
-                  {FOCUS_SESSIONS_BEFORE_LONG_BREAK - currentTimer.focusSessionsCompleted === 1 ? 'Pomodoro' : 'Pomodoros'} until long break -&nbsp;
+                  {FOCUS_SESSIONS_BEFORE_LONG_BREAK - (currentTimer.sessionsToday % FOCUS_SESSIONS_BEFORE_LONG_BREAK)} {' '}
+                  {FOCUS_SESSIONS_BEFORE_LONG_BREAK - (currentTimer.sessionsToday % FOCUS_SESSIONS_BEFORE_LONG_BREAK) === 1 ? 'Pomodoro' : 'Pomodoros'} until long break -&nbsp;
                 </span>
               )}
               {timerInfo.sessionsToday} {timerInfo.sessionsToday === 1 ? 'Pomodoro' : 'Pomodoros'} today

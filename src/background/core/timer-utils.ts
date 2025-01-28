@@ -41,8 +41,8 @@ export function validateTimerState(state: unknown): boolean {
     'lastCompletedPhaseType',
     'endTime',
     'remainingTime',
-    'focusSessionsCompleted',
-    'totalCycles'
+    'sessionsToday',
+    'lastSessionDate'
   ];
   
   return requiredFields.every(field => field in (state as object));
