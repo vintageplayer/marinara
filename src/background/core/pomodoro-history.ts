@@ -158,8 +158,10 @@ const calculateAverages = (
 ): void => {
   if (history.completion_timestamps.length === 0) return;
 
-  const totalSessions = history.completion_timestamps.length;
-  const oldestTimestamp = history.completion_timestamps[0];
+  // Get unique timestamps by removing duplicates
+  const uniqueTimestamps = [...new Set(history.completion_timestamps)];
+  const totalSessions = uniqueTimestamps.length;
+  const oldestTimestamp = uniqueTimestamps[0];
   
   // Calculate time delta from first pomodoro to now (in milliseconds)
   const delta = now.getTime() - (oldestTimestamp * 60000);
@@ -169,7 +171,7 @@ const calculateAverages = (
   const weekCount = Math.max(dayCount / 7, 1);
   const monthCount = Math.max(dayCount / (365.25 / 12), 1);
 
-  // Calculate averages
+  // Calculate averages using unique session count
   stats.dailyAvg = totalSessions / dayCount;
   stats.weeklyAvg = totalSessions / weekCount;
   stats.monthlyAvg = totalSessions / monthCount;
@@ -204,6 +206,15 @@ export async function getHistoricalStats(): Promise<PomodoroStats> {
       return createEmptyStats();
     }
 
+    // Get unique timestamps
+    const uniqueTimestamps = [...new Set(history.completion_timestamps)].sort((a, b) => a - b);
+    
+    // Create a new history object with unique timestamps
+    const uniqueHistory: PomodoroHistory = {
+      ...history,
+      completion_timestamps: uniqueTimestamps
+    };
+
     const now = new Date();
     const periodBoundaries = getTimePeriodBoundaries(now);
     const stats = createEmptyStats();
@@ -212,23 +223,23 @@ export async function getHistoricalStats(): Promise<PomodoroStats> {
     let sessionsRemainingForDuration = 0;
 
     // Process timestamps from newest to oldest
-    for (let i = history.completion_timestamps.length - 1; i >= 0; i--) {
+    for (let i = uniqueHistory.completion_timestamps.length - 1; i >= 0; i--) {
       // Get the count for current duration if we've used up previous count
       if (sessionsRemainingForDuration === 0) {
-        if (currentDurationIndex >= history.durations.length) break;
-        sessionsRemainingForDuration = history.durations[currentDurationIndex].count;
+        if (currentDurationIndex >= uniqueHistory.durations.length) break;
+        sessionsRemainingForDuration = uniqueHistory.durations[currentDurationIndex].count;
         currentDurationIndex++;
       }
 
-      const timestamp = history.completion_timestamps[i];
-      const shouldContinue = updatePeriodCounters(timestamp, periodBoundaries, stats, history);
+      const timestamp = uniqueHistory.completion_timestamps[i];
+      const shouldContinue = updatePeriodCounters(timestamp, periodBoundaries, stats, uniqueHistory);
       if (!shouldContinue) break;
 
       sessionsRemainingForDuration--;
     }
 
     // Calculate averages
-    calculateAverages(now, periodBoundaries, stats, history);
+    calculateAverages(now, periodBoundaries, stats, uniqueHistory);
 
     return stats;
   });
@@ -272,39 +283,145 @@ export async function clearSessionHistory(): Promise<void> {
 }
 
 /**
+ * Binary search to find insertion point
+ * Returns the index where all elements at or after are at least min
+ */
+const binarySearch = (arr: number[], min: number, lo: number = 0, hi: number = arr.length - 1): number => {
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (arr[mid] >= min) {
+      hi = mid - 1;
+    } else {
+      lo = mid + 1;
+    }
+  }
+  return Math.min(lo, arr.length);
+};
+
+/**
  * Merges imported history data with existing history
  */
 export async function mergeHistory(importedData: ImportData): Promise<void> {
   await withMutex(historyMutex, async () => {
     const currentHistory = await getSessionHistory();
 
-    // Convert the pairs of values to CountedValue format
-    const durations = [];
+    // Convert imported pairs to CountedValue arrays
+    const importedDurations: CountedValue<number>[] = [];
+    const importedTimezones: CountedValue<number>[] = [];
+    
     for (let i = 0; i < importedData.durations.length; i += 2) {
-      durations.push({
+      importedDurations.push({
         count: importedData.durations[i],
         value: importedData.durations[i + 1]
       });
     }
-
-    const timezones = [];
+    
     for (let i = 0; i < importedData.timezones.length; i += 2) {
-      timezones.push({
+      importedTimezones.push({
         count: importedData.timezones[i],
         value: importedData.timezones[i + 1]
       });
     }
 
-    // Create the merged history
-    const mergedHistory: PomodoroHistory = {
-      completion_timestamps: [...currentHistory.completion_timestamps, ...importedData.pomodoros].sort((a, b) => a - b),
-      durations: [...currentHistory.durations, ...durations],
-      timezones: [...currentHistory.timezones, ...timezones],
-      version: importedData.version
-    };
+    // Create new arrays for merged data
+    const mergedTimestamps = [...currentHistory.completion_timestamps];
+    const mergedDurations = [...currentHistory.durations];
+    const mergedTimezones = [...currentHistory.timezones];
 
-    // Store the merged history
-    await chrome.storage.local.set({ [STORAGE_KEY]: mergedHistory });
+    // Track how many new sessions were added
+    let addedCount = 0;
+
+    // Keep track of duration and timezone counts that need to be adjusted
+    let durationAdjustments = new Map<number, number>(); // value -> count to add
+    let timezoneAdjustments = new Map<number, number>(); // value -> count to add
+
+    // Process each imported timestamp
+    for (let i = 0; i < importedData.pomodoros.length; i++) {
+      const timestamp = importedData.pomodoros[i];
+      
+      // Find where this timestamp should be inserted
+      const insertIndex = binarySearch(mergedTimestamps, timestamp);
+      
+      // Skip if this timestamp already exists
+      if (mergedTimestamps[insertIndex] === timestamp) {
+        continue;
+      }
+
+      // Insert the timestamp at the correct position
+      mergedTimestamps.splice(insertIndex, 0, timestamp);
+      addedCount++;
+
+      // Find the corresponding duration and timezone for this timestamp
+      let durationSum = 0;
+      let durationValue = 0;
+      for (let j = 0; j < importedDurations.length; j++) {
+        durationSum += importedDurations[j].count;
+        if (i < durationSum) {
+          durationValue = importedDurations[j].value;
+          durationAdjustments.set(
+            durationValue, 
+            (durationAdjustments.get(durationValue) || 0) + 1
+          );
+          break;
+        }
+      }
+
+      let timezoneSum = 0;
+      let timezoneValue = 0;
+      for (let j = 0; j < importedTimezones.length; j++) {
+        timezoneSum += importedTimezones[j].count;
+        if (i < timezoneSum) {
+          timezoneValue = importedTimezones[j].value;
+          timezoneAdjustments.set(
+            timezoneValue, 
+            (timezoneAdjustments.get(timezoneValue) || 0) + 1
+          );
+          break;
+        }
+      }
+    }
+
+    // Only update storage if we actually added new sessions
+    if (addedCount > 0) {
+      // Adjust duration counts
+      for (const [value, countToAdd] of durationAdjustments) {
+        let found = false;
+        for (let i = 0; i < mergedDurations.length; i++) {
+          if (mergedDurations[i].value === value) {
+            mergedDurations[i].count += countToAdd;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          mergedDurations.push({ value, count: countToAdd });
+        }
+      }
+
+      // Adjust timezone counts
+      for (const [value, countToAdd] of timezoneAdjustments) {
+        let found = false;
+        for (let i = 0; i < mergedTimezones.length; i++) {
+          if (mergedTimezones[i].value === value) {
+            mergedTimezones[i].count += countToAdd;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          mergedTimezones.push({ value, count: countToAdd });
+        }
+      }
+
+      const mergedHistory: PomodoroHistory = {
+        completion_timestamps: mergedTimestamps,
+        durations: mergedDurations,
+        timezones: mergedTimezones,
+        version: Math.max(currentHistory.version, importedData.version)
+      };
+
+      await chrome.storage.local.set({ [STORAGE_KEY]: mergedHistory });
+    }
   });
 }
 
@@ -388,4 +505,68 @@ export function createCsvData(history: PomodoroHistory): CsvRow[] {
   });
 
   return rows;
+}
+
+/**
+ * Groups timestamps by day, accounting for timezones
+ */
+export function getDailyGroups(history: PomodoroHistory, since: Date): Record<number, number> {
+  const daily: Record<number, number> = {};
+  if (history.completion_timestamps.length === 0) return daily;
+
+  // Get today's start in the local timezone
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Create a map of timestamps to their timezone offsets for quick lookup
+  const timestampToOffset = new Map<number, number>();
+  let totalCount = 0;
+  for (const tz of history.timezones) {
+    for (let i = 0; i < tz.count; i++) {
+      if (totalCount < history.completion_timestamps.length) {
+        timestampToOffset.set(history.completion_timestamps[totalCount], tz.value);
+        totalCount++;
+      }
+    }
+  }
+
+  // Default timezone offset if none found
+  const defaultOffset = new Date().getTimezoneOffset();
+
+  // Sort timestamps and process them
+  const sortedTimestamps = [...history.completion_timestamps].sort((a, b) => b - a); // Newest first
+  let currentDate = new Date(today);
+  let currentBase = 0;
+
+  while (currentDate >= since) {
+    const startOfDay = new Date(currentDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const nextDay = new Date(startOfDay);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    // Convert boundary dates to timestamps with timezone adjustment
+    const startTimestamp = Math.floor(startOfDay.getTime() / 60000);
+    const endTimestamp = Math.floor(nextDay.getTime() / 60000);
+
+    // Count sessions in this day
+    let dayCount = 0;
+    for (const timestamp of sortedTimestamps) {
+      // Get the timezone offset for this timestamp
+      const tzOffset = timestampToOffset.get(timestamp) ?? defaultOffset;
+      const adjustedTimestamp = timestamp + tzOffset;
+
+      if (adjustedTimestamp >= startTimestamp && adjustedTimestamp < endTimestamp) {
+        dayCount++;
+      }
+    }
+
+    if (dayCount > 0) {
+      daily[+startOfDay] = dayCount;
+    }
+
+    // Move to previous day
+    currentDate.setDate(currentDate.getDate() - 1);
+  }
+
+  return daily;
 } 

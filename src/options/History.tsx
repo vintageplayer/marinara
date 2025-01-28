@@ -71,7 +71,7 @@ const History: React.FC<HistoryProps> = ({ pomodoroHistory, historicalStats }) =
       </div>
 
       {/* Debug Section */}
-      <div className="p-4 bg-gray-800 text-gray-300 rounded-lg">
+      <div className="p-4 bg-gray-800 text-gray-300 rounded-lg hidden">
         <h3 className="text-sm font-semibold mb-2 text-gray-400">Debug Data:</h3>
         <pre className="text-xs font-mono whitespace-pre-wrap">
           {JSON.stringify(pomodoroHistory, null, 2)}

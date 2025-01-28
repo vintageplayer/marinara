@@ -106,6 +106,7 @@ const DailyDistribution: React.FC<DistributionProps> = ({ pomodoroHistory }) => 
   const [selectedInterval, setSelectedInterval] = useState<TimeIntervalInMinutes>(60);
   const [chartData, setChartData] = useState<ChartDataPoint[] | null>(null);
   const [maxValue, setMaxValue] = useState<number>(0);
+
   const calculateDistribution = (): { distribution: ChartDataPoint[] | null; maxValue: number } => {
     if (!pomodoroHistory?.completion_timestamps.length) return { distribution: null, maxValue: 0 };
 
@@ -140,13 +141,21 @@ const DailyDistribution: React.FC<DistributionProps> = ({ pomodoroHistory }) => 
     });
 
     let maxValue = 0;
+    const currentTimezoneOffset = new Date().getTimezoneOffset();
 
     // Fill distribution with completion counts based on selected interval
     pomodoroHistory.completion_timestamps.forEach(timestamp => {
-      const date = new Date(timestamp * 60 * 1000); // Convert timestamp in minutes to milliseconds
-      const minutesFromMidnight = date.getHours() * 60 + date.getMinutes();
-      const bucketIndex = Math.floor(minutesFromMidnight / selectedInterval);
-      if (bucketIndex < distribution.length) {
+      // Convert timestamp to milliseconds and adjust for timezone
+      const timestampMs = timestamp * 60 * 1000;
+      const adjustedTimestampMs = timestampMs - (currentTimezoneOffset * 60 * 1000);
+      
+      // Get day-relative milliseconds
+      const dayRelativeMs = adjustedTimestampMs % (24 * 60 * 60 * 1000);
+      
+      // Calculate bucket index based on interval
+      const bucketIndex = Math.floor(dayRelativeMs / (selectedInterval * 60 * 1000));
+      
+      if (bucketIndex >= 0 && bucketIndex < distribution.length) {
         distribution[bucketIndex].value.count++;
         if (distribution[bucketIndex].value.count > maxValue) {
           maxValue = distribution[bucketIndex].value.count;
