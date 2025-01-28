@@ -91,7 +91,10 @@ const updateCountedValues = <T>(array: CountedValue<T>[], newValue: T): CountedV
  * Gets the start timestamps for today, this week, and this month
  */
 const getTimePeriodBoundaries = (now: Date) => {
-  // Start of current day (midnight)
+  // Get the timezone offset in minutes
+  const timezoneOffset = now.getTimezoneOffset();
+  
+  // Start of current day (midnight in local timezone)
   const startOfDay = new Date(now);
   startOfDay.setHours(0, 0, 0, 0);
   
@@ -100,13 +103,13 @@ const getTimePeriodBoundaries = (now: Date) => {
   startOfWeek.setDate(startOfDay.getDate() - startOfDay.getDay());
   
   // Start of current month
-  const startOfMonth = new Date(startOfDay);
-  startOfMonth.setDate(1);
+  const startOfMonth = new Date(startOfDay.getFullYear(), startOfDay.getMonth(), 1);
   
+  // Convert to UTC timestamps in minutes and adjust for timezone
   return {
-    dayStart: dateToTimestamp(startOfDay),
-    weekStart: dateToTimestamp(startOfWeek),
-    monthStart: dateToTimestamp(startOfMonth)
+    dayStart: dateToTimestamp(startOfDay) + timezoneOffset,
+    weekStart: dateToTimestamp(startOfWeek) + timezoneOffset,
+    monthStart: dateToTimestamp(startOfMonth) + timezoneOffset
   };
 };
 
@@ -116,18 +119,30 @@ const getTimePeriodBoundaries = (now: Date) => {
 const updatePeriodCounters = (
   timestamp: number,
   boundaries: { dayStart: number; weekStart: number; monthStart: number },
-  counters: { daily: number; weekly: number; monthly: number }
+  counters: { daily: number; weekly: number; monthly: number },
+  history: PomodoroHistory
 ) => {
-  if (timestamp >= boundaries.dayStart) {
+  // Get the timezone offset for this timestamp
+  const timezoneOffset = findTimezoneOffsetForTimestamp(history, timestamp);
+  
+  // Adjust the timestamp with its timezone offset for comparison
+  const adjustedTimestamp = timestamp + timezoneOffset;
+  const timestampDate = new Date(timestamp * 60000);
+  const timestampMonth = timestampDate.getMonth();
+  const currentMonth = new Date().getMonth();
+
+  if (adjustedTimestamp >= boundaries.dayStart) {
     counters.daily++;
     counters.weekly++;
     counters.monthly++;
-  } else if (timestamp >= boundaries.weekStart) {
+  } else if (adjustedTimestamp >= boundaries.weekStart) {
     counters.weekly++;
     counters.monthly++;
-  } else if (timestamp >= boundaries.monthStart) {
+  } else if (timestampMonth === currentMonth) {
+    // If the timestamp is from the current month, count it regardless of the monthStart boundary
     counters.monthly++;
-    return false; // Signal to stop processing if we're past all relevant periods
+  } else if (adjustedTimestamp < boundaries.monthStart) {
+    return false; // Signal to stop processing if we're before the current month
   }
   return true; // Continue processing
 };
@@ -143,36 +158,40 @@ const calculateAverages = (
 ): void => {
   if (history.completion_timestamps.length === 0) return;
 
+  const totalSessions = history.completion_timestamps.length;
   const oldestTimestamp = history.completion_timestamps[0];
-  const latestTimestamp = history.completion_timestamps[history.completion_timestamps.length - 1];
-  const totalSessions = history.durations.reduce((sum, curr) => sum + curr.count, 0);
-
-  // Calculate daily average
-  const totalDays = Math.ceil((latestTimestamp - oldestTimestamp) / MINUTES_IN_DAY) + 1;
-  stats.dailyAvg = totalSessions / totalDays;
-
-  // Calculate weekly average aligned with calendar weeks (Sunday start)
-  const oldestDate = new Date(oldestTimestamp * 60000);
-  const latestDate = new Date(latestTimestamp * 60000);
   
-  // Get start of the first week
-  const startOfFirstWeek = new Date(oldestDate);
-  startOfFirstWeek.setHours(0, 0, 0, 0);
-  startOfFirstWeek.setDate(oldestDate.getDate() - oldestDate.getDay()); // Roll back to Sunday
+  // Calculate time delta from first pomodoro to now (in milliseconds)
+  const delta = now.getTime() - (oldestTimestamp * 60000);
   
-  // Get end of the last week
-  const endOfLastWeek = new Date(latestDate);
-  endOfLastWeek.setHours(23, 59, 59, 999);
-  const daysUntilEndOfWeek = 6 - latestDate.getDay(); // Days until Saturday
-  endOfLastWeek.setDate(latestDate.getDate() + daysUntilEndOfWeek);
-  
-  // Calculate total weeks
-  const totalWeeks = Math.ceil((endOfLastWeek.getTime() - startOfFirstWeek.getTime()) / (MINUTES_IN_WEEK * 60000));
-  stats.weeklyAvg = totalSessions / totalWeeks;
+  // Convert to days, weeks, and months (using same logic as original)
+  const dayCount = Math.max(delta / (1000 * 60 * 60 * 24), 1);
+  const weekCount = Math.max(dayCount / 7, 1);
+  const monthCount = Math.max(dayCount / (365.25 / 12), 1);
 
-  // Calculate monthly average
-  const totalMonths = Math.ceil((latestTimestamp - oldestTimestamp) / MINUTES_IN_MONTH);
-  stats.monthlyAvg = totalSessions / totalMonths;
+  // Calculate averages
+  stats.dailyAvg = totalSessions / dayCount;
+  stats.weeklyAvg = totalSessions / weekCount;
+  stats.monthlyAvg = totalSessions / monthCount;
+};
+
+/**
+ * Find the timezone offset for a given timestamp from history
+ */
+const findTimezoneOffsetForTimestamp = (history: PomodoroHistory, targetTimestamp: number): number => {
+  if (history.timezones.length === 0) {
+    return new Date().getTimezoneOffset();
+  }
+
+  let totalCount = 0;
+  for (let i = 0; i < history.timezones.length; i++) {
+    totalCount += history.timezones[i].count;
+    if (totalCount >= history.completion_timestamps.findIndex(t => t === targetTimestamp) + 1) {
+      return history.timezones[i].value;
+    }
+  }
+
+  return history.timezones[history.timezones.length - 1].value;
 };
 
 /**
@@ -202,7 +221,7 @@ export async function getHistoricalStats(): Promise<PomodoroStats> {
       }
 
       const timestamp = history.completion_timestamps[i];
-      const shouldContinue = updatePeriodCounters(timestamp, periodBoundaries, stats);
+      const shouldContinue = updatePeriodCounters(timestamp, periodBoundaries, stats, history);
       if (!shouldContinue) break;
 
       sessionsRemainingForDuration--;
