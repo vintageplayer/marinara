@@ -4,6 +4,7 @@ import DailyDistribution from './DailyDistribution';
 import WeeklyDistribution from './WeeklyDistribution';
 import Heatmap from './Heatmap';
 import { HistoryProps } from './interfaces';
+import HistoryExportImport from './HistoryExportImport';
 
 const History: React.FC<HistoryProps> = ({ pomodoroHistory, historicalStats }) => {
   // Calculate total sessions from the counted values
@@ -63,6 +64,9 @@ const History: React.FC<HistoryProps> = ({ pomodoroHistory, historicalStats }) =
         </div>
         <div className="bg-white rounded-lg p-4">
           <Heatmap pomodoroHistory={pomodoroHistory} />
+        </div>
+        <div className="bg-white rounded-lg p-4">
+          <HistoryExportImport pomodoroHistory={pomodoroHistory} />
         </div>
       </div>
 
