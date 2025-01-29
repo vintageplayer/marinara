@@ -54,21 +54,21 @@ const Heatmap: React.FC<DistributionProps> = ({ pomodoroHistory }) => {
       return;
     }
 
-    console.log('Raw timestamps:', pomodoroHistory.completion_timestamps);
-
-    // Convert timestamps to date counts
     const data: { [key: string]: number } = {};
+    const currentDate = new Date();
+    const oneYearAgo = new Date(currentDate.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+    // Process timestamps into daily counts
     pomodoroHistory.completion_timestamps.forEach(timestamp => {
-      const date = parseTimestamp(timestamp);
-      const dateKey = getDateKey(date);
-      data[dateKey] = (data[dateKey] || 0) + 1;
-      console.log('Processing timestamp:', timestamp, 'Date:', date, 'Key:', dateKey, 'Count:', data[dateKey]);
+      const date = new Date(timestamp * 60000);
+      if (date >= oneYearAgo && date <= currentDate) {
+        const dateKey = date.toISOString().split('T')[0];
+        data[dateKey] = (data[dateKey] || 0) + 1;
+      }
     });
 
-    console.log('Processed data:', data);
-
+    // Find the maximum value for scaling
     const max = Math.max(...Object.values(data));
-    console.log('Max value:', max);
 
     const formatColor = d3.scaleQuantize<string>()
       .domain([0, max])
