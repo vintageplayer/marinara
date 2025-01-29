@@ -102,7 +102,7 @@ export default function PhaseCompletion() {
             {isTimerRunning ? formatPhaseText(nextPhaseType) : getPhaseText()}
           </h2>
           <div className="w-full h-px bg-gray-200 my-4" />
-          {timerInfo.sessionsToday > 0 && currentTimer && (
+          { currentTimer && (
             <div className="text-gray-600 text-lg">
               {nextPhaseType === 'focus' && (
                 <span>
