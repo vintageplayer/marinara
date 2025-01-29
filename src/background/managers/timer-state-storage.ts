@@ -13,8 +13,15 @@ export class TimerStateStorage {
   public async loadState(): Promise<TimerState | null> {
     try {
       const storedTimerState = await chrome.storage.local.get(['timer']);
-      if (storedTimerState.timer && validateTimerState(storedTimerState.timer)) {
-        return storedTimerState.timer;
+      if (storedTimerState.timer) {
+        // Handle migration from old version (without version field)
+        if (!('version' in storedTimerState.timer)) {
+          storedTimerState.timer.version = 1;
+        }
+        
+        if (validateTimerState(storedTimerState.timer)) {
+          return storedTimerState.timer;
+        }
       }
       return null;
     } catch (error) {

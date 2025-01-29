@@ -2,6 +2,7 @@ export type TimerType = 'focus' | 'short-break' | 'long-break';
 export type TimerStatus = 'running' | 'paused' | 'stopped';
 
 export interface TimerState {
+  version: number;      // Version of the timer state format
   timerStatus: TimerStatus;
   timerType: TimerType | null;
   lastCompletedPhaseType: TimerType | null;

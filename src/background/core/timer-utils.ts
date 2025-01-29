@@ -36,6 +36,7 @@ export function validateTimerState(state: unknown): boolean {
   if (!state || typeof state !== 'object') return false;
   
   const requiredFields = [
+    'version',
     'timerStatus',
     'timerType',
     'lastCompletedPhaseType',

@@ -30,6 +30,7 @@ export class PomodoroTimer {
 
   private createDefaultState(): TimerState {
     return {
+      version: 1,
       timerStatus: 'stopped',
       timerType: null,
       lastCompletedPhaseType: null,
@@ -93,6 +94,11 @@ export class PomodoroTimer {
         ...this.currentTimer,
         ...timerStateUpdates,
       };
+
+      // Ensure version is never undefined or null
+      if (typeof newTimerState.version !== 'number') {
+        newTimerState.version = 1;
+      }
 
       // Ensure sessionsToday is never undefined or null
       if (typeof newTimerState.sessionsToday !== 'number') {
