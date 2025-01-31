@@ -4,6 +4,7 @@ import { TimerState } from "../background/core/pomodoro-settings";
 import { PomodoroHistory, PomodoroStats, getHistoricalStats } from "../background/core/pomodoro-history";
 import Header from "./Header";
 import History from "./History";
+import Settings from "./Settings";
 
 const Options = () => {
   const [currentTimer, setCurrentTimer] = useState<TimerState | null>(null);
@@ -52,7 +53,7 @@ const Options = () => {
       <Header />
       <div className="p-8">
         <Routes>
-          <Route path="settings" element={<SettingsContent />} />
+          <Route path="settings" element={<Settings />} />
           <Route 
             path="history" 
             element={<History pomodoroHistory={pomodoroHistory} historicalStats={historicalStats} />} 
