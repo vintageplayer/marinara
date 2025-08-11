@@ -1,10 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { FOCUS_SESSIONS_BEFORE_LONG_BREAK, TimerState, TimerType } from '../background/core/pomodoro-settings';
-
-interface TimerInfo {
-  type: TimerType;
-  sessionsToday: number;
-}
+import React from 'react';
+import { TimerState, TimerType } from '../background/core/pomodoro-settings';
+import { usePomodoroContext } from '../context/PomodoroContext';
 
 function formatPhaseText(type: TimerType): string {
   switch (type) {
@@ -17,41 +13,18 @@ function formatPhaseText(type: TimerType): string {
   }
 }
 
-function getNextPhaseToShow(timerInfo: TimerInfo, currentTimer: TimerState | null): TimerType {
+function getNextPhaseToShow(timerInfo: { type: TimerType; sessionsToday: number } | null, currentTimer: TimerState | null): TimerType {
   // If there's a timer active (running or paused), use its type
   if (currentTimer && currentTimer.timerStatus !== 'stopped' && currentTimer.timerType) {
     return currentTimer.timerType;
   }
 
   // Otherwise use the next phase type
-  return timerInfo.type;
+  return timerInfo?.type || 'focus';
 }
 
 export default function PhaseCompletion() {
-  const [timerInfo, setTimerInfo] = useState<TimerInfo | null>(null);
-  const [currentTimer, setCurrentTimer] = useState<TimerState | null>(null);
-
-  useEffect(() => {
-    chrome.runtime.sendMessage({ action: 'getNextPhaseInfo' }, (response) => {
-      if (!response) {
-        return;
-      }
-      if ('error' in response) {
-        return;
-      }
-      setTimerInfo(response);
-    });
-
-    chrome.runtime.sendMessage({ action: 'getCurrentTimer' }, (response) => {
-      if (!response) {
-        return;
-      }
-      if ('error' in response) {
-        return;
-      }
-      setCurrentTimer(response);
-    });
-  }, []);
+  const { settings, currentTimer, timerInfo } = usePomodoroContext();
 
   if (!timerInfo) return null;
 
@@ -94,6 +67,13 @@ export default function PhaseCompletion() {
     return dots;
   };
 
+  const getPomodorsUntilLongBreak = () => {
+    if (!currentTimer) return 0;
+    const interval = settings['long-break'].interval;
+    if (interval === 0) return 0; // Long breaks are disabled
+    return interval - (currentTimer.sessionsToday % interval);
+  };
+
   return (
     <div className="bg-white min-h-screen pt-[15vh] md:pt-[18vh] lg:pt-[20vh]">
       <div className="flex flex-col items-center gap-16">
@@ -104,10 +84,10 @@ export default function PhaseCompletion() {
           <div className="w-full h-px bg-gray-200 my-4" />
           { currentTimer && (
             <div className="text-gray-600 text-lg">
-              {nextPhaseType === 'focus' && (
+              {nextPhaseType === 'focus' && settings['long-break'].interval > 0 && (
                 <span>
-                  {FOCUS_SESSIONS_BEFORE_LONG_BREAK - (currentTimer.sessionsToday % FOCUS_SESSIONS_BEFORE_LONG_BREAK)} {' '}
-                  {FOCUS_SESSIONS_BEFORE_LONG_BREAK - (currentTimer.sessionsToday % FOCUS_SESSIONS_BEFORE_LONG_BREAK) === 1 ? 'Pomodoro' : 'Pomodoros'} until long break -&nbsp;
+                  {getPomodorsUntilLongBreak()} {' '}
+                  {getPomodorsUntilLongBreak() === 1 ? 'Pomodoro' : 'Pomodoros'} until long break -&nbsp;
                 </span>
               )}
               {timerInfo.sessionsToday} {timerInfo.sessionsToday === 1 ? 'Pomodoro' : 'Pomodoros'} today

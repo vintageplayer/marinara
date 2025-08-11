@@ -1,25 +1,70 @@
 export type TimerType = 'focus' | 'short-break' | 'long-break';
 export type TimerStatus = 'running' | 'paused' | 'stopped';
 
+export interface TimerSettings {
+  duration: number; // Duration in minutes
+  timerSound: string | null;
+  notifications: {
+    desktop: boolean;
+    tab: boolean;
+    sound: string;
+  };
+}
+
+export interface LongBreakSettings extends TimerSettings {
+  interval: number;
+}
+
+export interface PomodoroSettings {
+  focus: TimerSettings;
+  'short-break': TimerSettings;
+  'long-break': LongBreakSettings;
+}
+
 export interface TimerState {
   version: number;      // Version of the timer state format
   timerStatus: TimerStatus;
   timerType: TimerType | null;
   lastCompletedPhaseType: TimerType | null;
   endTime: number | null;
-  remainingTime: number | null;
+  remainingTime: number | null;  // Remaining time in seconds
+  initialDurationMinutes: number | null;  // Duration in minutes that was set when timer started
   sessionsToday: number;      // Number of focus sessions completed today
+  sessionsSinceLastLongBreak: number;  // Add this field
   lastSessionDate: string;    // ISO date string of the last completed session
 }
 
-export const TIMER_DURATIONS = {
-  focus: 2 * 60, // 25 minutes
-  shortBreak: 1 * 60, // 5 minutes
-  longBreak: 1 * 60 // 15 minutes
+// Default settings
+export const DEFAULT_SETTINGS: PomodoroSettings = {
+  focus: {
+    duration: 25, // 25 minutes
+    timerSound: null,
+    notifications: {
+      desktop: true,
+      tab: true,
+      sound: 'Gong 1'
+    }
+  },
+  'short-break': {
+    duration: 5, // 5 minutes
+    timerSound: null,
+    notifications: {
+      desktop: true,
+      tab: true,
+      sound: 'Gong 2'
+    }
+  },
+  'long-break': {
+    duration: 15, // 15 minutes
+    interval: 4,
+    timerSound: null,
+    notifications: {
+      desktop: true,
+      tab: true,
+      sound: 'Gong 2'
+    }
+  }
 };
 
 // Constants for timer-related values
-export const TIMER_UPDATE_INTERVAL = 1000; // 1 second in milliseconds
-
-// Take a long break after completing 4 focus sessions
-export const FOCUS_SESSIONS_BEFORE_LONG_BREAK = 4; 
+export const TIMER_UPDATE_INTERVAL = 1000; // 1 second in milliseconds 

@@ -1,24 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { TimerType } from '../background/core/pomodoro-settings';
-
-interface SettingsProps {
-  onSettingsChange?: (settings: any) => void;
-}
-
-interface TimerSettings {
-  duration: number;
-  timerSound: string | null;
-  timerBpm?: number | null;
-  notifications: {
-    desktop: boolean;
-    tab: boolean;
-    sound: string;
-  };
-}
-
-interface LongBreakSettings extends TimerSettings {
-  interval: number;
-}
+import { settingsManager, SettingsField } from '../background/managers/settings-manager';
+import { usePomodoroContext } from '../context/PomodoroContext';
 
 const PlayIcon = () => (
   <svg 
@@ -33,42 +16,26 @@ const PlayIcon = () => (
   </svg>
 );
 
-const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
+const Settings: React.FC = () => {
   const [showSettingsSaved, setShowSettingsSaved] = useState(false);
-  const [canPlayTimerSound, setCanPlayTimerSound] = useState(false);
-  const [isPlayingTimerSound, setIsPlayingTimerSound] = useState(false);
+  const { settings, updateSettings } = usePomodoroContext();
 
-  const [focusSettings, setFocusSettings] = useState<TimerSettings>({
-    duration: 25,
-    timerSound: null,
-    timerBpm: null,
-    notifications: {
-      desktop: true,
-      tab: true,
-      sound: 'Gong 1'
+  const handleSettingChange = async (
+    timerType: TimerType,
+    field: SettingsField,
+    value: any
+  ) => {
+    try {
+      console.log('[Settings] handleSettingChange', timerType, field, value);
+      await settingsManager.updateSetting(timerType, field, value);
+      await updateSettings();
+      setShowSettingsSaved(true);
+      setTimeout(() => setShowSettingsSaved(false), 3000);
+    } catch (error) {
+      console.error('Error updating setting:', error);
     }
-  });
+  };
 
-  const [shortBreakSettings, setShortBreakSettings] = useState<TimerSettings>({
-    duration: 5,
-    timerSound: null,
-    notifications: {
-      desktop: true,
-      tab: true,
-      sound: 'Gong 2'
-    }
-  });
-
-  const [longBreakSettings, setLongBreakSettings] = useState<LongBreakSettings>({
-    duration: 15,
-    interval: 4,
-    timerSound: null,
-    notifications: {
-      desktop: true,
-      tab: true,
-      sound: 'Gong 2'
-    }
-  });
 
   const timerSounds = [
     { name: 'Ticking', files: 'ticking' },
@@ -81,67 +48,6 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
     { name: 'Gong 2', value: 'gong-2' },
     { name: 'Bell', value: 'bell' }
   ];
-
-  useEffect(() => {
-    // Load settings from chrome.storage.local
-    chrome.storage.local.get(['settings'], (result) => {
-      if (result.settings) {
-        const { focus, shortBreak, longBreak } = result.settings;
-        if (focus) setFocusSettings(focus);
-        if (shortBreak) setShortBreakSettings(shortBreak);
-        if (longBreak) setLongBreakSettings(longBreak);
-      }
-    });
-  }, []);
-
-  const handleSettingChange = (
-    timerType: TimerType,
-    field: string,
-    value: any
-  ) => {
-    const setSettings = {
-      'focus': setFocusSettings,
-      'short-break': setShortBreakSettings,
-      'long-break': setLongBreakSettings
-    }[timerType];
-
-    setSettings((prev: any) => {
-      const newSettings = { ...prev };
-      if (field.includes('.')) {
-        const [parent, child] = field.split('.');
-        newSettings[parent] = { ...newSettings[parent], [child]: value };
-      } else {
-        newSettings[field] = value;
-      }
-      
-      // Save to chrome.storage.local
-      chrome.storage.local.get(['settings'], (result) => {
-        const currentSettings = result.settings || {};
-        chrome.storage.local.set({
-          settings: {
-            ...currentSettings,
-            [timerType]: newSettings
-          }
-        }, () => {
-          setShowSettingsSaved(true);
-          setTimeout(() => setShowSettingsSaved(false), 3000);
-        });
-      });
-
-      return newSettings;
-    });
-  };
-
-  const playTimerSound = () => {
-    if (!canPlayTimerSound) return;
-    setIsPlayingTimerSound(true);
-    // Add sound playing logic here
-  };
-
-  const stopTimerSound = () => {
-    setIsPlayingTimerSound(false);
-    // Add sound stopping logic here
-  };
 
   return (
     <form className="mt-2 max-w-2xl mx-auto">
@@ -156,7 +62,7 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
               min="1"
               max="999"
               className="w-16 pl-2 py-1 border border-gray-600 rounded text-base"
-              value={focusSettings.duration}
+              value={settings.focus.duration}
               onChange={(e) => handleSettingChange('focus', 'duration', parseInt(e.target.value))}
               autoFocus
             />
@@ -167,22 +73,22 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
             <div className="text-base mb-2">Timer sound:</div>
             <div className="px-10">
               <select
-                value={focusSettings.timerSound || ''}
+                value={settings.focus.timerSound || ''}
                 onChange={(e) => handleSettingChange('focus', 'timerSound', e.target.value || null)}
-              className="border border-gray-600 rounded text-base bg-white"
-            >
-              <option value="">None</option>
-              <optgroup label="Periodic Beat">
-                {timerSounds.map(sound => (
-                  <option key={sound.files} value={sound.files}>{sound.name}</option>
-                ))}
-              </optgroup>
-              <optgroup label="Noise">
-                <option value="brown-noise">Brown Noise</option>
-                <option value="pink-noise">Pink Noise</option>
-                <option value="white-noise">White Noise</option>
-              </optgroup>
-            </select>
+                className="border border-gray-600 rounded text-base bg-white"
+              >
+                <option value="">None</option>
+                <optgroup label="Periodic Beat">
+                  {timerSounds.map(sound => (
+                    <option key={sound.files} value={sound.files}>{sound.name}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Noise">
+                  <option value="brown-noise">Brown Noise</option>
+                  <option value="pink-noise">Pink Noise</option>
+                  <option value="white-noise">White Noise</option>
+                </optgroup>
+              </select>
             </div>
           </div>
 
@@ -192,7 +98,7 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={focusSettings.notifications.desktop}
+                  checked={settings.focus.notifications.desktop}
                   onChange={(e) => handleSettingChange('focus', 'notifications.desktop', e.target.checked)}
                   className="w-4 h-4 mr-2 accent-blue-500"
                 />
@@ -202,7 +108,7 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={focusSettings.notifications.tab}
+                  checked={settings.focus.notifications.tab}
                   onChange={(e) => handleSettingChange('focus', 'notifications.tab', e.target.checked)}
                   className="w-4 h-4 mr-2 accent-blue-500"
                 />
@@ -212,7 +118,7 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
               <div className="flex items-center">
                 <span className="text-base mr-2">Play sound:</span>
                 <select
-                  value={focusSettings.notifications.sound}
+                  value={settings.focus.notifications.sound}
                   onChange={(e) => handleSettingChange('focus', 'notifications.sound', e.target.value)}
                   className="min-w-32 border border-gray-600 rounded text-base bg-white"
                 >
@@ -239,7 +145,7 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
               min="1"
               max="999"
               className="w-16 pl-2 py-1 border border-gray-600 rounded text-base"
-              value={shortBreakSettings.duration}
+              value={settings['short-break'].duration}
               onChange={(e) => handleSettingChange('short-break', 'duration', parseInt(e.target.value))}
             />
             <span className="ml-2 text-base">minutes</span>
@@ -251,7 +157,7 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={shortBreakSettings.notifications.desktop}
+                  checked={settings['short-break'].notifications.desktop}
                   onChange={(e) => handleSettingChange('short-break', 'notifications.desktop', e.target.checked)}
                   className="w-4 h-4 mr-2 accent-blue-500"
                 />
@@ -261,7 +167,7 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
               <label className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={shortBreakSettings.notifications.tab}
+                  checked={settings['short-break'].notifications.tab}
                   onChange={(e) => handleSettingChange('short-break', 'notifications.tab', e.target.checked)}
                   className="w-4 h-4 mr-2 accent-blue-500"
                 />
@@ -271,7 +177,7 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
               <div className="flex items-center">
                 <span className="text-base mr-2">Play sound:</span>
                 <select
-                  value={shortBreakSettings.notifications.sound}
+                  value={settings['short-break'].notifications.sound}
                   onChange={(e) => handleSettingChange('short-break', 'notifications.sound', e.target.value)}
                   className="min-w-32 border border-gray-600 rounded text-base bg-white"
                 >
@@ -294,7 +200,7 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
           <div>
             <span className="text-base mr-2 w-36">Take a long break:</span>&nbsp;
             <select
-              value={longBreakSettings.interval}
+              value={settings['long-break'].interval}
               onChange={(e) => handleSettingChange('long-break', 'interval', parseInt(e.target.value))}
               className="w-64 px-2 py-1 border border-gray-600 rounded text-base bg-white"
             >
@@ -305,7 +211,7 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
             </select>
           </div>
 
-          <fieldset disabled={longBreakSettings.interval === 0} className="space-y-4">
+          <fieldset disabled={settings['long-break'].interval === 0} className="space-y-4">
             <div>
               <span className="text-base mr-2 w-24">Duration:</span>
               <input
@@ -313,7 +219,7 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
                 min="1"
                 max="999"
                 className="w-16 pl-2 py-1 border border-gray-600 rounded text-base"
-                value={longBreakSettings.duration}
+                value={settings['long-break'].duration}
                 onChange={(e) => handleSettingChange('long-break', 'duration', parseInt(e.target.value))}
               />
               <span className="ml-2 text-base">minutes</span>
@@ -325,7 +231,7 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
                 <label className="flex items-center">
                   <input
                     type="checkbox"
-                    checked={longBreakSettings.notifications.desktop}
+                    checked={settings['long-break'].notifications.desktop}
                     onChange={(e) => handleSettingChange('long-break', 'notifications.desktop', e.target.checked)}
                     className="w-4 h-4 mr-2 accent-blue-500"
                   />
@@ -335,7 +241,7 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
                 <label className="flex items-center">
                   <input
                     type="checkbox"
-                    checked={longBreakSettings.notifications.tab}
+                    checked={settings['long-break'].notifications.tab}
                     onChange={(e) => handleSettingChange('long-break', 'notifications.tab', e.target.checked)}
                     className="w-4 h-4 mr-2 accent-blue-500"
                   />
@@ -345,7 +251,7 @@ const Settings: React.FC<SettingsProps> = ({ onSettingsChange }) => {
                 <div className="flex items-center">
                   <span className="text-base mr-2">Play sound:</span>
                   <select
-                    value={longBreakSettings.notifications.sound}
+                    value={settings['long-break'].notifications.sound}
                     onChange={(e) => handleSettingChange('long-break', 'notifications.sound', e.target.value)}
                     className="min-w-32 border border-gray-600 rounded text-base bg-white"
                   >

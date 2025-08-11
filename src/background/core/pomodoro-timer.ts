@@ -1,18 +1,22 @@
-import { TimerState, TimerType, FOCUS_SESSIONS_BEFORE_LONG_BREAK, TIMER_UPDATE_INTERVAL } from './pomodoro-settings';
+import { 
+  TimerType, 
+  TIMER_UPDATE_INTERVAL,
+  TimerState as TimerStateType  // Rename the imported interface
+} from './pomodoro-settings';
 import { CompletionHandler } from '../managers/completion-handler';
 import { BadgeManager } from '../managers/badge-manager';
 import { TimerStateStorage } from '../managers/timer-state-storage';
 import { ContextMenuManager } from '../managers/context-menu-manager';
+import { settingsManager } from '../managers/settings-manager';
 import { getHistoricalStats } from './pomodoro-history';
 import { 
-  getTimerDuration, 
   calculateRemainingTime, 
   TimerError,
   validateTimerState 
 } from './timer-utils';
 
 export class PomodoroTimer {
-  private currentTimer: TimerState;
+  private currentTimer: TimerStateType;
   private intervalId?: NodeJS.Timeout;
   private completionHandler: CompletionHandler;
   private badgeManager: BadgeManager;
@@ -26,9 +30,10 @@ export class PomodoroTimer {
     this.stateStorage = new TimerStateStorage();
     this.contextMenuManager = new ContextMenuManager();
     this.initialize();
+    this.setupSettingsListener();
   }
 
-  private createDefaultState(): TimerState {
+  private createDefaultState(): TimerStateType {
     return {
       version: 1,
       timerStatus: 'stopped',
@@ -36,8 +41,10 @@ export class PomodoroTimer {
       lastCompletedPhaseType: null,
       endTime: null,
       remainingTime: null,
+      initialDurationMinutes: null,
       sessionsToday: 0,
-      lastSessionDate: ''  // This will be set during initialization
+      sessionsSinceLastLongBreak: 0,
+      lastSessionDate: ''
     };
   }
 
@@ -58,6 +65,7 @@ export class PomodoroTimer {
           await this.updateState({
             ...storedState,
             sessionsToday: 0,
+            sessionsSinceLastLongBreak: 0,
             lastSessionDate: today
           });
         } else {
@@ -88,7 +96,7 @@ export class PomodoroTimer {
     }
   }
 
-  private async updateState(timerStateUpdates: Partial<TimerState>): Promise<void> {
+  private async updateState(timerStateUpdates: Partial<TimerStateType>): Promise<void> {
     try {
       const newTimerState = {
         ...this.currentTimer,
@@ -118,7 +126,7 @@ export class PomodoroTimer {
       
       // Notify all managers of state change
       this.badgeManager.handleStateChange(this.currentTimer);
-      this.completionHandler.handleStateChange(this.currentTimer);
+    this.completionHandler.handleStateChange(this.currentTimer);
       await this.contextMenuManager.handleStateChange(this.currentTimer);
       await this.stateStorage.saveState(this.currentTimer);
     } catch (error) {
@@ -131,6 +139,9 @@ export class PomodoroTimer {
   }
 
   public async toggleTimerState(): Promise<void> {
+    // Wait for settings to be initialized
+    await settingsManager.waitForInitialization();
+    
     if (this.isRunning()) {
       await this.pause();
     } else if (this.isPaused()) {
@@ -138,6 +149,16 @@ export class PomodoroTimer {
     } else {
       await this.start(this.getNextType());
     }
+
+      // Log state changes
+      console.log('[PomodoroTimer] State Update:', {
+        timerStatus: this.currentTimer.timerStatus,
+        timerType: this.currentTimer.timerType,
+        initialDurationMinutes: this.currentTimer.initialDurationMinutes,
+        remainingTime: this.currentTimer.remainingTime,
+        sessionsToday: this.currentTimer.sessionsToday
+      });
+
   }
 
   public getNextType(): TimerType {
@@ -147,8 +168,10 @@ export class PomodoroTimer {
       return 'focus';
     }
 
-    if (lastCompletedPhaseType === 'focus') {
-      return (this.currentTimer.sessionsToday % FOCUS_SESSIONS_BEFORE_LONG_BREAK === 0) 
+    console.log('[PomodoroTimer][getNextType] longBreakInterval:', settingsManager.getLongBreakInterval());
+
+    if (this.currentTimer.sessionsSinceLastLongBreak !== 0 && lastCompletedPhaseType === 'focus') {
+      return (this.currentTimer.sessionsSinceLastLongBreak % settingsManager.getLongBreakInterval() === 0) 
         ? 'long-break' 
         : 'short-break';
     }
@@ -157,14 +180,28 @@ export class PomodoroTimer {
   }
 
   public async start(timerType: TimerType): Promise<void> {
-    const duration = getTimerDuration(timerType);
-    const endTime = Date.now() + duration * 1000;
+    // Wait for settings to be initialized
+    await settingsManager.waitForInitialization();
+
+    console.log('[PomodoroTimer] Starting timer:', settingsManager.getSettings());
+    
+    const durationMinutes = settingsManager.getTimerDurationInMinutes(timerType);
+    const durationSeconds = durationMinutes * 60;
+    const endTime = Date.now() + durationSeconds * 1000;
+
+    console.log('[PomodoroTimer] Starting new timer:', {
+      type: timerType,
+      durationMinutes,
+      durationSeconds,
+      endTime: new Date(endTime).toISOString()
+    });
 
     await this.updateState({
       timerStatus: 'running',
       timerType,
       endTime,
-      remainingTime: duration
+      remainingTime: durationSeconds,
+      initialDurationMinutes: durationMinutes
     });
 
     this.startInterval();
@@ -176,7 +213,8 @@ export class PomodoroTimer {
         timerStatus: 'stopped',
         timerType: null,
         endTime: null,
-        remainingTime: null
+        remainingTime: null,
+        initialDurationMinutes: null
       });
     } catch (error) {
       await this.handleError('stopping timer', error);
@@ -226,7 +264,7 @@ export class PomodoroTimer {
     return this.currentTimer.timerStatus === 'paused';
   }
 
-  public getCurrentState(): TimerState {
+  public getCurrentState(): TimerStateType {
     return { ...this.currentTimer };
   }
 
@@ -276,6 +314,12 @@ export class PomodoroTimer {
     this.clearInterval();
     
     if (completedPhaseType) {
+      console.log('[PomodoroTimer] Timer completed:', {
+        type: completedPhaseType,
+        initialDurationMinutes: this.currentTimer.initialDurationMinutes,
+        sessionsToday: this.currentTimer.sessionsToday
+      });
+      
       await this.updateCompletionStats(completedPhaseType);
       await this.stop();
     }
@@ -283,7 +327,7 @@ export class PomodoroTimer {
 
   private async updateCompletionStats(phaseType: TimerType): Promise<void> {
     const today = new Date().toISOString().split('T')[0];
-    const updates: Partial<TimerState> = {
+    const updates: Partial<TimerStateType> = {
       lastCompletedPhaseType: phaseType,
       lastSessionDate: today
     };
@@ -295,6 +339,11 @@ export class PomodoroTimer {
       } else {
         updates.sessionsToday = this.currentTimer.sessionsToday + 1;
       }
+      // Increment sessions since last long break
+      updates.sessionsSinceLastLongBreak = this.currentTimer.sessionsSinceLastLongBreak + 1;
+    } else if (phaseType === 'long-break') {
+      // Reset the counter after a long break
+      updates.sessionsSinceLastLongBreak = 0;
     }
     
     await this.updateState(updates);
@@ -305,6 +354,14 @@ export class PomodoroTimer {
       clearInterval(this.intervalId);
       this.intervalId = undefined;
     }
+  }
+
+  private setupSettingsListener(): void {
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message.action === 'settingsChanged') {
+        console.log('[PomodoroTimer] Settings changed, will use new settings for next timer');
+      }
+    });
   }
 
   private async handleError(operation: string, error: unknown): Promise<never> {

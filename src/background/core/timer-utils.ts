@@ -1,22 +1,9 @@
-import { TimerType, TIMER_DURATIONS } from './pomodoro-settings';
+import { TimerType } from './pomodoro-settings';
 
 export class TimerError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'TimerError';
-  }
-}
-
-export function getTimerDuration(phaseType: TimerType): number {
-  switch (phaseType) {
-    case 'focus':
-      return TIMER_DURATIONS.focus;
-    case 'short-break':
-      return TIMER_DURATIONS.shortBreak;
-    case 'long-break':
-      return TIMER_DURATIONS.longBreak;
-    default:
-      throw new TimerError(`Unknown timer type: ${phaseType}`);
   }
 }
 
