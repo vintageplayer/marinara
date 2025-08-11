@@ -1,6 +1,7 @@
 import { TimerState } from '../core/pomodoro-settings';
 import { notifyTimerComplete } from '../notifications/completion-notifications';
 import { addCompletedSession } from '../core/pomodoro-history';
+import { settingsManager } from './settings-manager';
 
 export class CompletionHandler {
   private lastState: TimerState | null = null;
@@ -57,7 +58,13 @@ export class CompletionHandler {
       initialDurationMinutes: completedState.initialDurationMinutes
     });
 
-    notifyTimerComplete(completedState.timerType);
+    // Wait for settings to be loaded and get the current settings for this timer type
+    await settingsManager.waitForInitialization();
+    const settings = settingsManager.getSettings();
+    const timerSettings = settings[completedState.timerType];
+
+    // Show desktop notification if enabled
+    notifyTimerComplete(completedState.timerType, timerSettings);
     
     // Store history for focus sessions
     if (completedState.timerType === 'focus' && completedState.initialDurationMinutes) {
@@ -68,7 +75,11 @@ export class CompletionHandler {
     }
     
     await this.closeCompletionPages();
-    await this.openCompletionPage();
+    
+    // Only open completion tab if enabled in settings
+    if (timerSettings.notifications.tab) {
+      await this.openCompletionPage();
+    }
   }
 
   private async closeCompletionPages(): Promise<void> {
