@@ -1,7 +1,7 @@
 {
-  "name": "gamodoro",
+  "name": "marinara",
   "version": "1.0.0",
-  "description": "Gamified Pomodoro timer with streak, points multiplier, leaderboard, and more",
+  "description": "Pomodoro® time management assistant, updated for Manifest V3",
   "main": "index.js",
   "scripts": {
     "watch": "webpack --config webpack/webpack.dev.js --watch",
@@ -10,11 +10,11 @@
     "test": "npx jest",
     "style": "prettier --write \"src/**/*.{ts,tsx}\""
   },
-  "author": "",
+  "author": "Marinara Development Team",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vintageplayer/gamodoro.git"
+    "url": "https://github.com/vintageplayer/marinara.git"
   },
   "dependencies": {
     "@observablehq/plot": "^0.6.16",
