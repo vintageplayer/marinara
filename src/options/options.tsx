@@ -33,7 +33,7 @@ const Options = () => {
               path="history" 
               element={<History pomodoroHistory={pomodoroHistory} historicalStats={historicalStats} />} 
             />
-            <Route path="/" element={<Navigate to="history" replace />} />
+            <Route path="/" element={<Navigate to="settings" replace />} />
           </Routes>
         </div>
       </div>

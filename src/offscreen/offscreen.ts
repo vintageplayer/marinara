@@ -38,8 +38,14 @@ class OffscreenAudioManager {
   };
 
   constructor() {
-    // Listen for messages from service worker
+    // Listen for messages from service worker - only handle audio messages
     chrome.runtime.onMessage.addListener((message: AudioMessage, sender, sendResponse) => {
+      // Only handle audio-related messages
+      const audioActions = ['startTimerSound', 'stopTimerSound', 'startNoise', 'stopNoise', 'playNotificationSound'];
+      if (!audioActions.includes(message.action)) {
+        return; // Let other handlers process non-audio messages
+      }
+      
       this.handleMessage(message).then(sendResponse).catch(console.error);
       return true; // Keep the message channel open for async response
     });

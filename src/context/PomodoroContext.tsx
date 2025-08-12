@@ -27,13 +27,31 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
 
     // Get timer info
     chrome.runtime.sendMessage({ action: 'getNextPhaseInfo' }, (response: any) => {
-      if (!response || 'error' in response) return;
+      if (chrome.runtime.lastError) {
+        console.error('Error getting timer info:', chrome.runtime.lastError);
+        // Set default timer info as fallback
+        setTimerInfo({ type: 'focus', sessionsToday: 0 });
+        return;
+      }
+      if (!response || 'error' in response) {
+        console.error('Invalid response getting timer info:', response);
+        // Set default timer info as fallback
+        setTimerInfo({ type: 'focus', sessionsToday: 0 });
+        return;
+      }
       setTimerInfo(response as { type: TimerType; sessionsToday: number });
     });
 
     // Get current timer state
     chrome.runtime.sendMessage({ action: 'getCurrentTimer' }, (response: any) => {
-      if (!response || 'error' in response) return;
+      if (chrome.runtime.lastError) {
+        console.error('Error getting current timer:', chrome.runtime.lastError);
+        return;
+      }
+      if (!response || 'error' in response) {
+        console.error('Invalid response getting current timer:', response);
+        return;
+      }
       setCurrentTimer(response as TimerState);
     });
 

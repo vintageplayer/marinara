@@ -26,7 +26,19 @@ function getNextPhaseToShow(timerInfo: { type: TimerType; sessionsToday: number 
 export default function PhaseCompletion() {
   const { settings, currentTimer, timerInfo } = usePomodoroContext();
 
-  if (!timerInfo) return null;
+  // Show loading state if timerInfo is not available yet
+  if (!timerInfo) {
+    return (
+      <div className="bg-white min-h-screen pt-[15vh] md:pt-[18vh] lg:pt-[20vh]">
+        <div className="flex flex-col items-center gap-16">
+          <div className="text-center">
+            <h2 className="text-3xl font-medium mb-2">Loading...</h2>
+            <div className="w-full h-px bg-gray-200 my-4" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const nextPhaseType = getNextPhaseToShow(timerInfo, currentTimer);
   const isTimerRunning = currentTimer && currentTimer.timerStatus === 'running';
