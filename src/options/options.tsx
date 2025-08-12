@@ -55,6 +55,7 @@ const Options = () => {
               path="history" 
               element={<History pomodoroHistory={pomodoroHistory} historicalStats={historicalStats} />} 
             />
+            <Route path="feedback" element={<div className="p-4 text-center"><h2 className="text-xl">Feedback</h2><p>Coming soon...</p></div>} />
             <Route path="/" element={<Navigate to="settings" replace />} />
           </Routes>
         </div>

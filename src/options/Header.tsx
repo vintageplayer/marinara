@@ -22,7 +22,7 @@ const Header: React.FC = () => {
       {/* Title and Icon Row */}
       <div className="flex items-center justify-center py-4">
         <img 
-          src="/icon.png"
+          src="/images/48.png"
           alt="Marinara Icon"
           className="w-8 h-8 mr-2"
         />
