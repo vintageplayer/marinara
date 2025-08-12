@@ -329,9 +329,7 @@ export function createCsvData(history: PomodoroHistory): CsvRow[] {
       }
     }
 
-    const timezoneOffset = history.timezones.length > 0 ? 
-      history.timezones[history.timezones.length - 1].value : 
-      new Date().getTimezoneOffset();
+    const timezoneOffset = HistoryUtils.findTimezoneOffsetForTimestamp(history, timestamp);
 
     const date = new Date(timestamp * 60000);
     const isoDate = date.toISOString().replace('Z', HistoryUtils.formatTimezoneOffset(timezoneOffset));
