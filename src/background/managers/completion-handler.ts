@@ -63,8 +63,8 @@ export class CompletionHandler {
     const settings = settingsManager.getSettings();
     const timerSettings = settings[completedState.timerType];
 
-    // Show desktop notification if enabled
-    notifyTimerComplete(completedState.timerType, timerSettings);
+    // Show desktop notification and play sound if enabled
+    await notifyTimerComplete(completedState.timerType, timerSettings);
     
     // Store history for focus sessions
     if (completedState.timerType === 'focus' && completedState.initialDurationMinutes) {

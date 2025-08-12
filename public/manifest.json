@@ -22,11 +22,12 @@
     "storage",
     "contextMenus",
     "notifications",
-    "tabs"
+    "tabs",
+    "offscreen"
   ],
 
   "web_accessible_resources": [{
-    "resources": ["phaseComplete.html"],
+    "resources": ["phaseComplete.html", "offscreen.html", "images/*", "audio/*"],
     "matches": ["chrome-extension://*/*"]
   }]
 }

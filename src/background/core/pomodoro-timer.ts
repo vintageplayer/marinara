@@ -9,6 +9,7 @@ import { TimerStateStorage } from '../managers/timer-state-storage';
 import { ContextMenuManager } from '../managers/context-menu-manager';
 import { settingsManager } from '../managers/settings-manager';
 import { getHistoricalStats } from './pomodoro-history';
+import { timerAudioService } from '../services/timer-audio-service';
 import { 
   calculateRemainingTime, 
   TimerError,
@@ -204,11 +205,21 @@ export class PomodoroTimer {
       initialDurationMinutes: durationMinutes
     });
 
+    // Start timer sound if configured
+    const currentSettings = settingsManager.getSettings();
+    const timerSettings = currentSettings[timerType];
+    if (timerSettings.timerSound) {
+      timerAudioService.startTimerSound(timerSettings.timerSound);
+    }
+
     this.startInterval();
   }
 
   public async stop(): Promise<void> {
     try {
+      // Stop any timer sounds
+      timerAudioService.stopTimerSound();
+      
       await this.updateState({
         timerStatus: 'stopped',
         timerType: null,
@@ -224,6 +235,9 @@ export class PomodoroTimer {
   public async pause(): Promise<void> {
     try {
       if (!this.isRunning()) return;
+      
+      // Stop timer sounds when pausing
+      timerAudioService.stopTimerSound();
       
       const remaining = calculateRemainingTime(this.currentTimer.endTime);
       if (remaining === null) {
@@ -249,6 +263,13 @@ export class PomodoroTimer {
         timerStatus: 'running',
         endTime: Date.now() + (this.currentTimer.remainingTime * 1000)
       });
+      
+      // Restart timer sound if configured
+      const currentSettings = settingsManager.getSettings();
+      const timerSettings = currentSettings[this.currentTimer.timerType];
+      if (timerSettings.timerSound) {
+        timerAudioService.startTimerSound(timerSettings.timerSound);
+      }
       
       this.startInterval();
     } catch (error) {

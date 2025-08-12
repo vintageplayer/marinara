@@ -7,7 +7,7 @@ export interface TimerSettings {
   notifications: {
     desktop: boolean;
     tab: boolean;
-    sound: string;
+    sound: string | null;
   };
 }
 
@@ -42,7 +42,7 @@ export const DEFAULT_SETTINGS: PomodoroSettings = {
     notifications: {
       desktop: true,
       tab: true,
-      sound: 'Gong 1'
+      sound: null
     }
   },
   'short-break': {
@@ -51,7 +51,7 @@ export const DEFAULT_SETTINGS: PomodoroSettings = {
     notifications: {
       desktop: true,
       tab: true,
-      sound: 'Gong 2'
+      sound: null
     }
   },
   'long-break': {
@@ -61,7 +61,7 @@ export const DEFAULT_SETTINGS: PomodoroSettings = {
     notifications: {
       desktop: true,
       tab: true,
-      sound: 'Gong 2'
+      sound: null
     }
   }
 };

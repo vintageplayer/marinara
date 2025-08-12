@@ -8,7 +8,8 @@ const fs = require("fs");
 const entries = {
   options: path.join(srcDir, 'options/index.tsx'),
   background: path.join(srcDir, 'background/background.ts'),
-  phaseCompletion: path.join(srcDir, 'phaseCompletion/index.tsx')
+  phaseCompletion: path.join(srcDir, 'phaseCompletion/index.tsx'),
+  offscreen: path.join(srcDir, 'offscreen/offscreen.ts')
 };
 
 // Add content_script only if it exists
@@ -27,7 +28,7 @@ module.exports = {
         splitChunks: {
             name: "vendor",
             chunks(chunk) {
-              return chunk.name !== 'background';
+              return chunk.name !== 'background' && chunk.name !== 'offscreen';
             }
         },
     },

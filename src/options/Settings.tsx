@@ -2,18 +2,16 @@ import React, { useState } from 'react';
 import { TimerType } from '../background/core/pomodoro-settings';
 import { settingsManager, SettingsField } from '../background/managers/settings-manager';
 import { usePomodoroContext } from '../context/PomodoroContext';
+import { audioPreview } from '../shared/audio-preview';
 
 const PlayIcon = () => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
+  <img 
+    src="/images/play.svg" 
+    alt="Play" 
     width="16" 
     height="16" 
-    viewBox="0 0 24 24" 
-    fill="currentColor"
     className="inline-block"
-  >
-    <path d="M8 5v14l11-7z"/>
-  </svg>
+  />
 );
 
 const Settings: React.FC = () => {
@@ -36,17 +34,60 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleSoundChange = async (
+    timerType: TimerType,
+    field: SettingsField,
+    value: string | null
+  ) => {
+    // Update setting immediately (no waiting)
+    await handleSettingChange(timerType, field, value);
+    
+    // Play sound preview in background (fire and forget)
+    if (value && value !== '' && value !== null) {
+      audioPreview.playSound(value).catch(error => {
+        console.error('Error playing sound preview:', error);
+      });
+    }
+  };
+
 
   const timerSounds = [
-    { name: 'Ticking', files: 'ticking' },
-    { name: 'Mechanical', files: 'mechanical' }
+    { name: 'None', value: '' },
+    { name: 'Stopwatch', value: 'stopwatch' },
+    { name: 'Wristwatch', value: 'wristwatch' },
+    { name: 'Clock', value: 'clock' },
+    { name: 'Wall Clock', value: 'wall-clock' },
+    { name: 'Desk Clock', value: 'desk-clock' },
+    { name: 'Wind-up Clock', value: 'wind-up-clock' },
+    { name: 'Metronome', value: 'metronome' },
+    { name: 'Wood Block', value: 'wood-block' },
+    { name: 'Pulse', value: 'pulse' },
+    { name: 'Mechanical', value: 'tick1' },
+    { name: 'White Noise', value: 'white-noise' },
+    { name: 'Pink Noise', value: 'pink-noise' },
+    { name: 'Brown Noise', value: 'brown-noise' }
   ];
 
   const notificationSounds = [
-    { name: 'None', value: null },
-    { name: 'Gong 1', value: 'gong-1' },
+    { name: 'None', value: '' },
+    { name: 'Tone', value: 'tone' },
+    { name: 'Digital Watch', value: 'digital-watch' },
+    { name: 'Analog Alarm Clock', value: 'analog-alarm-clock' },
+    { name: 'Digital Alarm Clock', value: 'digital-alarm-clock' },
+    { name: 'Electronic Chime', value: 'chime' },
+    { name: 'Gong 1', value: 'gong' },
     { name: 'Gong 2', value: 'gong-2' },
-    { name: 'Bell', value: 'bell' }
+    { name: 'Computer Magic', value: 'computer-magic' },
+    { name: 'Fire Pager', value: 'fire-pager' },
+    { name: 'Glass Ping', value: 'glass-ping' },
+    { name: 'Music Box', value: 'music-box' },
+    { name: 'Pin Drop', value: 'pin-drop' },
+    { name: 'Robot Blip 1', value: 'robot-blip-1' },
+    { name: 'Robot Blip 2', value: 'robot-blip' },
+    { name: 'Ship Bell', value: 'bell' },
+    { name: 'Train Horn', value: 'train-horn' },
+    { name: 'Bike Horn', value: 'bike-horn' },
+    { name: 'Ding', value: 'ding' }
   ];
 
   return (
@@ -74,19 +115,19 @@ const Settings: React.FC = () => {
             <div className="px-10">
               <select
                 value={settings.focus.timerSound || ''}
-                onChange={(e) => handleSettingChange('focus', 'timerSound', e.target.value || null)}
+                onChange={(e) => handleSoundChange('focus', 'timerSound', e.target.value || null)}
                 className="border border-gray-600 rounded text-base bg-white"
               >
                 <option value="">None</option>
                 <optgroup label="Periodic Beat">
-                  {timerSounds.map(sound => (
-                    <option key={sound.files} value={sound.files}>{sound.name}</option>
+                  {timerSounds.slice(1, -3).map(sound => (
+                    <option key={sound.value} value={sound.value}>{sound.name}</option>
                   ))}
                 </optgroup>
-                <optgroup label="Noise">
-                  <option value="brown-noise">Brown Noise</option>
-                  <option value="pink-noise">Pink Noise</option>
-                  <option value="white-noise">White Noise</option>
+                <optgroup label="Ambient Noise">
+                  {timerSounds.slice(-3).map(sound => (
+                    <option key={sound.value} value={sound.value}>{sound.name}</option>
+                  ))}
                 </optgroup>
               </select>
             </div>
@@ -118,8 +159,8 @@ const Settings: React.FC = () => {
               <div className="flex items-center">
                 <span className="text-base mr-2">Play sound:</span>
                 <select
-                  value={settings.focus.notifications.sound}
-                  onChange={(e) => handleSettingChange('focus', 'notifications.sound', e.target.value)}
+                  value={settings.focus.notifications.sound || ''}
+                  onChange={(e) => handleSoundChange('focus', 'notifications.sound', e.target.value)}
                   className="min-w-32 border border-gray-600 rounded text-base bg-white"
                 >
                   {notificationSounds.map(sound => (
@@ -177,8 +218,8 @@ const Settings: React.FC = () => {
               <div className="flex items-center">
                 <span className="text-base mr-2">Play sound:</span>
                 <select
-                  value={settings['short-break'].notifications.sound}
-                  onChange={(e) => handleSettingChange('short-break', 'notifications.sound', e.target.value)}
+                  value={settings['short-break'].notifications.sound || ''}
+                  onChange={(e) => handleSoundChange('short-break', 'notifications.sound', e.target.value)}
                   className="min-w-32 border border-gray-600 rounded text-base bg-white"
                 >
                   {notificationSounds.map(sound => (
@@ -251,8 +292,8 @@ const Settings: React.FC = () => {
                 <div className="flex items-center">
                   <span className="text-base mr-2">Play sound:</span>
                   <select
-                    value={settings['long-break'].notifications.sound}
-                    onChange={(e) => handleSettingChange('long-break', 'notifications.sound', e.target.value)}
+                    value={settings['long-break'].notifications.sound || ''}
+                    onChange={(e) => handleSoundChange('long-break', 'notifications.sound', e.target.value)}
                     className="min-w-32 border border-gray-600 rounded text-base bg-white"
                   >
                     {notificationSounds.map(sound => (
