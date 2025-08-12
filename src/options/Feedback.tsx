@@ -31,6 +31,33 @@ const Feedback: React.FC = () => {
             Contributors
           </a>
         </p>
+        
+        {/* Credit to Original */}
+        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <p className="text-sm text-gray-700 mb-2">
+            Built upon the original{' '}
+            <a 
+              href="https://github.com/schmich/marinara" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-red-600 underline hover:text-red-700"
+            >
+              Marinara Pomodoro Timer
+            </a>
+            {' '}by{' '}
+            <a 
+              href="https://github.com/schmich" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-red-600 underline hover:text-red-700"
+            >
+              Chris Schmich
+            </a>
+          </p>
+          <p className="text-xs text-gray-600">
+            This Manifest V3 version preserves the excellent design and functionality of the original extension.
+          </p>
+        </div>
       </div>
 
       {/* Feedback Links */}
