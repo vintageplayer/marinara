@@ -29,7 +29,6 @@ export function validateTimerState(state: unknown): boolean {
     'lastCompletedPhaseType',
     'endTime',
     'remainingTime',
-    'sessionsToday',
     'lastSessionDate'
   ];
   

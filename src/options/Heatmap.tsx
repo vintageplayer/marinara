@@ -45,7 +45,10 @@ const getFirstSundayOfMonth = (date: Date): Date => {
 
 const Heatmap: React.FC<DistributionProps> = ({ pomodoroHistory }) => {
   const heatmapRef = useRef<HTMLDivElement>(null);
-  const totalSessions = pomodoroHistory?.completion_timestamps.length ?? 0;
+  // Use unique timestamps count to match statistical calculations
+  const totalSessions = pomodoroHistory?.completion_timestamps 
+    ? [...new Set(pomodoroHistory.completion_timestamps)].length 
+    : 0;
   const title = totalSessions > 0 
     ? `${totalSessions} Pomodoros in the Last 9 Months`
     : 'No Pomodoros in the Last 9 Months';

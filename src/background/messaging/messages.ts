@@ -1,6 +1,7 @@
 import { TimerState, TimerType } from '../core/pomodoro-settings';
 import pomodoroTimer from '../core/pomodoro-timer';
 import { TimerError } from '../core/timer-utils';
+import { getHistoricalStats } from '../core/pomodoro-history';
 
 interface NextPhaseInfo {
   type: TimerType;
@@ -39,22 +40,27 @@ export function initializeMessageHandlers() {
 
       switch (message.action) {
         case 'getNextPhaseInfo': {
-          try {
-            const timer = pomodoroTimer.getCurrentState();
-            const nextType = pomodoroTimer.getNextType();
-            
-            const response: NextPhaseInfo = {
-              type: nextType,
-              sessionsToday: timer.sessionsToday
-            };
-            sendResponse(response);
+          (async () => {
+            try {
+              const timer = pomodoroTimer.getCurrentState();
+              const nextType = pomodoroTimer.getNextType();
+              // Get today's sessions from historical data (single source of truth)
+              const stats = await getHistoricalStats();
+              console.log('[Messages] getNextPhaseInfo stats:', { daily: stats.daily, weekly: stats.weekly, monthly: stats.monthly });
+              
+              const response: NextPhaseInfo = {
+                type: nextType,
+                sessionsToday: stats.daily
+              };
+              sendResponse(response);
           } catch (error) {
             console.error('Error getting next phase info:', error);
             sendResponse({ 
               error: error instanceof Error ? error.message : 'Unknown error getting next phase info'
             });
           }
-          break;
+          })();
+          return true; // Indicate async response
         }
         
         case 'getCurrentTimer':

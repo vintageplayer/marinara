@@ -29,7 +29,6 @@ export interface TimerState {
   endTime: number | null;
   remainingTime: number | null;  // Remaining time in seconds
   initialDurationMinutes: number | null;  // Duration in minutes that was set when timer started
-  sessionsToday: number;      // Number of focus sessions completed today
   sessionsSinceLastLongBreak: number;  // Add this field
   lastSessionDate: string;    // ISO date string of the last completed session
 }

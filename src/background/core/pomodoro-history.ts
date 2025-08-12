@@ -156,10 +156,28 @@ export async function addCompletedSession(duration: number): Promise<void> {
   await withMutex(historyMutex, async () => {
     const history = await historyStorage.loadHistory();
     const now = new Date();
+    const newTimestamp = HistoryUtils.dateToTimestamp(now);
     
-    history.completion_timestamps.push(HistoryUtils.dateToTimestamp(now));
+    // Prevent duplicate sessions within the same minute
+    const lastTimestamp = history.completion_timestamps[history.completion_timestamps.length - 1];
+    if (lastTimestamp === newTimestamp) {
+      console.warn('[addCompletedSession] Duplicate timestamp detected, skipping:', {
+        timestamp: newTimestamp,
+        lastTimestamp,
+        duration
+      });
+      return;
+    }
+    
+    history.completion_timestamps.push(newTimestamp);
     HistoryUtils.updateCountedValues(history.durations, duration);
     HistoryUtils.updateCountedValues(history.timezones, now.getTimezoneOffset());
+    
+    console.log('[addCompletedSession] Session added:', {
+      timestamp: newTimestamp,
+      duration,
+      totalSessions: history.completion_timestamps.length
+    });
     
     await historyStorage.saveHistory(history);
   });
@@ -171,6 +189,38 @@ export async function getSessionHistory(): Promise<PomodoroHistory> {
 
 export async function clearSessionHistory(): Promise<void> {
   await historyStorage.clearHistory();
+}
+
+/**
+ * Remove duplicate timestamps from history and adjust duration counts accordingly
+ */
+export async function deduplicateHistory(): Promise<{ removed: number }> {
+  return await withMutex(historyMutex, async () => {
+    const history = await historyStorage.loadHistory();
+    const originalCount = history.completion_timestamps.length;
+    
+    if (originalCount === 0) {
+      return { removed: 0 };
+    }
+    
+    // Remove duplicates while preserving order
+    const uniqueTimestamps = [...new Set(history.completion_timestamps)];
+    const duplicatesCount = originalCount - uniqueTimestamps.length;
+    
+    if (duplicatesCount > 0) {
+      console.log(`[deduplicateHistory] Removing ${duplicatesCount} duplicate timestamps`);
+      
+      // Update the history with deduplicated timestamps
+      const cleanedHistory: PomodoroHistory = {
+        ...history,
+        completion_timestamps: uniqueTimestamps
+      };
+      
+      await historyStorage.saveHistory(cleanedHistory);
+    }
+    
+    return { removed: duplicatesCount };
+  });
 }
 
 /**

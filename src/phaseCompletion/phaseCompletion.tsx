@@ -83,7 +83,8 @@ export default function PhaseCompletion() {
     if (!currentTimer) return 0;
     const interval = settings['long-break'].interval;
     if (interval === 0) return 0; // Long breaks are disabled
-    return interval - (currentTimer.sessionsToday % interval);
+    // Use the cycle counter, not daily total
+    return interval - (currentTimer.sessionsSinceLastLongBreak % interval);
   };
 
   return (

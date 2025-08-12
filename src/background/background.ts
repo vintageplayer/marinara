@@ -1,10 +1,21 @@
 import pomodoroTimer from './core/pomodoro-timer';
 import { initializeContextMenu, handleContextMenuClick } from './ui/context-menu';
 import { initializeMessageHandlers } from './messaging/messages';
+import { deduplicateHistory } from './core/pomodoro-history';
 
-// Initialize context menu
-chrome.runtime.onInstalled.addListener(() => {
+// Initialize context menu and clean up any duplicate history entries
+chrome.runtime.onInstalled.addListener(async () => {
   initializeContextMenu();
+  
+  // Clean up any existing duplicate timestamps
+  try {
+    const result = await deduplicateHistory();
+    if (result.removed > 0) {
+      console.log(`[Background] Cleaned up ${result.removed} duplicate history entries`);
+    }
+  } catch (error) {
+    console.error('[Background] Error deduplicating history:', error);
+  }
 });
 
 // Initialize message handlers

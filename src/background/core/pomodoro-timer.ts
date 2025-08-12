@@ -43,7 +43,6 @@ export class PomodoroTimer {
       endTime: null,
       remainingTime: null,
       initialDurationMinutes: null,
-      sessionsToday: 0,
       sessionsSinceLastLongBreak: 0,
       lastSessionDate: ''
     };
@@ -52,10 +51,6 @@ export class PomodoroTimer {
   private async initialize(): Promise<void> {
     const today = new Date().toISOString().split('T')[0];
     try {
-      // Get today's sessions from history
-      const stats = await getHistoricalStats();
-      const todaysSessions = stats.daily;
-
       const storedState = await this.stateStorage.loadState();
       
       if (storedState) {
@@ -65,22 +60,17 @@ export class PomodoroTimer {
         if (shouldResetDaily) {
           await this.updateState({
             ...storedState,
-            sessionsToday: 0,
             sessionsSinceLastLongBreak: 0,
             lastSessionDate: today
           });
         } else {
-          await this.updateState({
-            ...storedState,
-            sessionsToday: todaysSessions // Use the count from history
-          });
+          await this.updateState(storedState);
         }
       } else {
         // No stored state, create a fresh one
         await this.updateState({
           ...this.createDefaultState(),
-          lastSessionDate: today,
-          sessionsToday: todaysSessions // Use the count from history
+          lastSessionDate: today
         });
       }
 
@@ -109,10 +99,6 @@ export class PomodoroTimer {
         newTimerState.version = 1;
       }
 
-      // Ensure sessionsToday is never undefined or null
-      if (typeof newTimerState.sessionsToday !== 'number') {
-        newTimerState.sessionsToday = 0;
-      }
 
       // Ensure lastSessionDate is never empty
       if (!newTimerState.lastSessionDate) {
@@ -156,8 +142,7 @@ export class PomodoroTimer {
         timerStatus: this.currentTimer.timerStatus,
         timerType: this.currentTimer.timerType,
         initialDurationMinutes: this.currentTimer.initialDurationMinutes,
-        remainingTime: this.currentTimer.remainingTime,
-        sessionsToday: this.currentTimer.sessionsToday
+        remainingTime: this.currentTimer.remainingTime
       });
 
   }
@@ -298,7 +283,6 @@ export class PomodoroTimer {
 
   public async resetCycle(): Promise<void> {
     await this.updateState({ 
-      sessionsToday: 0,
       sessionsSinceLastLongBreak: 0,
       lastCompletedPhaseType: null 
     });
@@ -348,8 +332,7 @@ export class PomodoroTimer {
     if (completedPhaseType) {
       console.log('[PomodoroTimer] Timer completed:', {
         type: completedPhaseType,
-        initialDurationMinutes: this.currentTimer.initialDurationMinutes,
-        sessionsToday: this.currentTimer.sessionsToday
+        initialDurationMinutes: this.currentTimer.initialDurationMinutes
       });
       
       await this.updateCompletionStats(completedPhaseType);
@@ -365,12 +348,6 @@ export class PomodoroTimer {
     };
     
     if (phaseType === 'focus') {
-      // Check if we need to reset daily sessions (new day)
-      if (this.currentTimer.lastSessionDate !== today) {
-        updates.sessionsToday = 1;
-      } else {
-        updates.sessionsToday = this.currentTimer.sessionsToday + 1;
-      }
       // Increment sessions since last long break
       updates.sessionsSinceLastLongBreak = this.currentTimer.sessionsSinceLastLongBreak + 1;
     } else if (phaseType === 'long-break') {

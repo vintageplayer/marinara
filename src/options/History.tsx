@@ -7,10 +7,10 @@ import { HistoryProps } from './interfaces';
 import HistoryExportImport from './HistoryExportImport';
 
 const History: React.FC<HistoryProps> = ({ pomodoroHistory, historicalStats }) => {
-  // Calculate total sessions from the counted values
+  // Calculate total sessions - use unique timestamps count to match statistical calculations
   const getTotalSessions = (history: PomodoroHistory | null): number => {
-    if (!history?.durations) return 0;
-    return history.durations.reduce((total, curr) => total + curr.count, 0);
+    if (!history?.completion_timestamps) return 0;
+    return [...new Set(history.completion_timestamps)].length;
   };
 
   const StatBox = ({ number, label, subtext }: { number: number, label: string, subtext?: string }) => (
