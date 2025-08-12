@@ -99,7 +99,7 @@ export default function PhaseCompletion() {
               {nextPhaseType === 'focus' && settings['long-break'].interval > 0 && (
                 <span>
                   {getPomodorsUntilLongBreak()} {' '}
-                  {getPomodorsUntilLongBreak() === 1 ? 'Pomodoro' : 'Pomodoros'} until long break -&nbsp;
+                  {getPomodorsUntilLongBreak() === 1 ? 'Pomodoro' : 'Pomodoros'} until long break -{' '}
                 </span>
               )}
               {timerInfo.sessionsToday} {timerInfo.sessionsToday === 1 ? 'Pomodoro' : 'Pomodoros'} today

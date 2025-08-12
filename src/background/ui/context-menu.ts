@@ -80,7 +80,14 @@ export function handleContextMenuClick(info: chrome.contextMenus.OnClickData) {
       pomodoroTimer.resetCycle();
       break;
     case MenuIds.VIEW_HISTORY:
-      chrome.runtime.openOptionsPage();
+      // Open options page to the history route
+      const historyUrl = chrome.runtime.getURL('options.html#/history');
+      chrome.tabs.create({ url: historyUrl });
+      break;
+    case MenuIds.OPTIONS:
+      // Open options page to the settings route
+      const optionsUrl = chrome.runtime.getURL('options.html#/settings');
+      chrome.tabs.create({ url: optionsUrl });
       break;
   }
 } 

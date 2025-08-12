@@ -7,13 +7,14 @@ export class CompletionHandler {
   private lastState: TimerState | null = null;
 
   public handleStateChange(newState: TimerState): void {
-    // First check if timer is being started
+    // Close completion pages and clear notifications when starting any timer
     if (this.isTimerStartEvent(this.lastState, newState)) {
-      console.log('[CompletionHandler] Timer start detected, closing completion pages');
+      console.log('[CompletionHandler] Timer start detected, closing completion pages and clearing notifications');
       this.closeCompletionPages();
+      this.clearNotifications();
     }
 
-    // Then check if this is a completion event
+    // Handle completion events
     if (this.isCompletionEvent(this.lastState, newState)) {
       // Store the last state before it gets updated
       const completedState = { ...this.lastState! };
@@ -42,7 +43,7 @@ export class CompletionHandler {
   }
 
   private isTimerStartEvent(oldState: TimerState | null, newState: TimerState): boolean {
-    // Check if the timer is transitioning to running state
+    // Close completion pages whenever a timer starts running
     return newState.timerStatus === 'running' && (
       oldState?.timerStatus === 'stopped' || 
       oldState?.timerStatus === 'paused' ||
@@ -72,6 +73,7 @@ export class CompletionHandler {
         durationMinutes: completedState.initialDurationMinutes
       });
       await addCompletedSession(completedState.initialDurationMinutes);
+      // History page will automatically refresh via storage change listener
     }
     
     await this.closeCompletionPages();
@@ -95,4 +97,10 @@ export class CompletionHandler {
       active: true
     });
   }
+
+  private clearNotifications(): void {
+    // Clear any existing pomodoro completion notifications
+    chrome.notifications.clear('pomodoro-complete');
+  }
+
 } 

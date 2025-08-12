@@ -97,7 +97,7 @@ const Settings: React.FC = () => {
         <h2 className="text-2xl font-normal text-red-700 mb-2 pb-1 border-b border-gray-400">Focus</h2>
         <div className="space-y-4">
           <div className="">
-            <span className="text-base w-24">Duration:</span>
+            <span className="text-base w-24">Duration: </span>
             <input
               type="number"
               min="1"
@@ -180,7 +180,7 @@ const Settings: React.FC = () => {
         <h2 className="text-2xl font-normal text-red-700 mb-2 pb-1 border-b border-gray-400">Short Break</h2>
         <div className="space-y-4">
           <div className="">
-            <span className="text-base mr-2 w-24">Duration:</span>&nbsp;
+            <span className="text-base mr-2 w-24">Duration: </span>
             <input
               type="number"
               min="1"
@@ -239,7 +239,7 @@ const Settings: React.FC = () => {
         <h2 className="text-2xl font-normal text-red-700 mb-2 pb-1 border-b border-gray-400">Long Break</h2>
         <div className="space-y-4">
           <div>
-            <span className="text-base mr-2 w-36">Take a long break:</span>&nbsp;
+            <span className="text-base mr-2 w-36">Take a long break: </span>
             <select
               value={settings['long-break'].interval}
               onChange={(e) => handleSettingChange('long-break', 'interval', parseInt(e.target.value))}

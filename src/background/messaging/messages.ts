@@ -83,7 +83,9 @@ export function initializeMessageHandlers() {
         
         case 'openHistory':
           try {
-            chrome.runtime.openOptionsPage();
+            // Open options page to the history route
+            const optionsUrl = chrome.runtime.getURL('options.html#/history');
+            chrome.tabs.create({ url: optionsUrl });
             sendResponse();
           } catch (error) {
             console.error('Error opening history:', error);

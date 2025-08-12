@@ -18,10 +18,11 @@ chrome.action.onClicked.addListener(() => {
   pomodoroTimer.toggleTimerState();
 });
 
-// Handle notification clicks - start next timer cycle
+// Handle notification clicks - start next timer
 chrome.notifications.onClicked.addListener((notificationId) => {
   if (notificationId === 'pomodoro-complete') {
     chrome.notifications.clear(notificationId);
+    // Start the next timer (completion handler will close pages)
     pomodoroTimer.toggleTimerState();
   }
 });

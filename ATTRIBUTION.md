@@ -166,17 +166,37 @@ The white, pink, and brown noise generation algorithms in this project are based
 
 ## Images
 
-Some icons are also derived from the Marinara project:
+Icons and images are derived from the Marinara project:
 
 File: images/settings.svg  
 Author: Freepik  
 URL: https://www.flaticon.com/free-icon/settings_263100  
 License: Flaticon Basic License (https://file000.flaticon.com/downloads/license/license.pdf)  
 
+File: images/history.svg  
+Author: Lucy G  
+URL: https://www.flaticon.com/free-icon/stats_118798  
+License: Creative Commons Attribution 3.0 Unported (https://creativecommons.org/licenses/by/3.0/)  
+
+File: images/pause.svg  
+Author: Chanut  
+URL: https://www.flaticon.com/free-icon/pause_151859  
+License: Flaticon Basic License (https://file000.flaticon.com/downloads/license/license.pdf)  
+
 File: images/play.svg  
 Author: Chanut  
 URL: https://www.flaticon.com/free-icon/play-button_151860  
 License: Flaticon Basic License (https://file000.flaticon.com/downloads/license/license.pdf)  
+
+File: images/restart.svg  
+Author: Freepik  
+URL: https://www.flaticon.com/free-icon/undo-circular-arrow_44426  
+License: Flaticon Basic License (https://file000.flaticon.com/downloads/license/license.pdf)  
+
+Files: images/16.png, images/48.png, images/128.png, images/browser-action.png, images/full.png, images/start.png  
+Source: Marinara Pomodoro Timer project  
+License: MIT License (see THIRD_PARTY_LICENSES.md)  
+Notes: Extension icons and timer state graphics copied from original Marinara project  
 
 ---
 

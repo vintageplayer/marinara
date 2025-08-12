@@ -106,6 +106,10 @@ export const menuStructure: MenuGroup[] = [
       { 
         id: MenuIds.VIEW_HISTORY, 
         title: 'Pomodoro History'
+      },
+      { 
+        id: MenuIds.OPTIONS, 
+        title: 'Options'
       }
     ]
   }

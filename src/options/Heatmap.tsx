@@ -5,6 +5,7 @@ import tippy from 'tippy.js';
 import 'tippy.js/dist/tippy.css';
 import EmptyState from './EmptyState';
 import { DistributionProps } from './interfaces';
+import { getDailyGroups } from '../background/core/pomodoro-history';
 
 const shortDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const cellSize = 15;
@@ -54,17 +55,18 @@ const Heatmap: React.FC<DistributionProps> = ({ pomodoroHistory }) => {
       return;
     }
 
-    const data: { [key: string]: number } = {};
     const currentDate = new Date();
     const oneYearAgo = new Date(currentDate.getTime() - 365 * 24 * 60 * 60 * 1000);
 
-    // Process timestamps into daily counts
-    pomodoroHistory.completion_timestamps.forEach(timestamp => {
-      const date = new Date(timestamp * 60000);
-      if (date >= oneYearAgo && date <= currentDate) {
-        const dateKey = date.toISOString().split('T')[0];
-        data[dateKey] = (data[dateKey] || 0) + 1;
-      }
+    // Use timezone-aware daily grouping (same logic as phase completion)
+    const dailyGroups = getDailyGroups(pomodoroHistory, oneYearAgo);
+    
+    // Convert to string keys for D3 compatibility
+    const data: { [key: string]: number } = {};
+    Object.entries(dailyGroups).forEach(([timestamp, count]) => {
+      const date = new Date(parseInt(timestamp));
+      const dateKey = date.toISOString().split('T')[0];
+      data[dateKey] = count;
     });
 
     // Find the maximum value for scaling

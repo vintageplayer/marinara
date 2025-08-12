@@ -16,5 +16,6 @@ export const MenuIds = {
   },
   RESTART_CYCLE: 'restart-cycle',
   VIEW_HISTORY: 'view-history',
+  OPTIONS: 'options',
   SEPARATOR: 'separator'
 } as const; 

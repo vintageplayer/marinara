@@ -163,21 +163,28 @@ export class PomodoroTimer {
   }
 
   public getNextType(): TimerType {
-    const lastCompletedPhaseType = this.currentTimer.lastCompletedPhaseType;
+    const lastPhase = this.currentTimer.lastCompletedPhaseType;
     
-    if (!lastCompletedPhaseType || lastCompletedPhaseType === 'long-break') {
+    // Always return to focus after any break (matches Marinara's pattern)
+    if (lastPhase === 'short-break' || lastPhase === 'long-break') {
       return 'focus';
     }
-
-    console.log('[PomodoroTimer][getNextType] longBreakInterval:', settingsManager.getLongBreakInterval());
-
-    if (this.currentTimer.sessionsSinceLastLongBreak !== 0 && lastCompletedPhaseType === 'focus') {
-      return (this.currentTimer.sessionsSinceLastLongBreak % settingsManager.getLongBreakInterval() === 0) 
-        ? 'long-break' 
-        : 'short-break';
+    
+    // If no previous phase or starting fresh, start with focus
+    if (!lastPhase) {
+      return 'focus';
     }
     
-    return 'focus';
+    // After focus, determine break type based on sessions
+    const longBreakInterval = settingsManager.getLongBreakInterval();
+    console.log('[PomodoroTimer][getNextType] sessionsSinceLastLongBreak:', this.currentTimer.sessionsSinceLastLongBreak, 'interval:', longBreakInterval);
+    
+    // Use >= instead of modulo check for clearer logic
+    if (longBreakInterval > 0 && this.currentTimer.sessionsSinceLastLongBreak >= longBreakInterval) {
+      return 'long-break';
+    }
+    
+    return 'short-break';
   }
 
   public async start(timerType: TimerType): Promise<void> {
@@ -290,7 +297,11 @@ export class PomodoroTimer {
   }
 
   public async resetCycle(): Promise<void> {
-    await this.updateState({ sessionsToday: 0 });
+    await this.updateState({ 
+      sessionsToday: 0,
+      sessionsSinceLastLongBreak: 0,
+      lastCompletedPhaseType: null 
+    });
     await this.start('focus');
   }
 

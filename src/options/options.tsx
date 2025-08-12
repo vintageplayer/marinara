@@ -10,7 +10,7 @@ const Options = () => {
   const [pomodoroHistory, setPomodoroHistory] = useState<PomodoroHistory | null>(null);
   const [historicalStats, setHistoricalStats] = useState<PomodoroStats | null>(null);
 
-  useEffect(() => {
+  const refreshHistoryData = async () => {
     // Get pomodoro history
     chrome.storage.local.get('pomodoroHistory', (result) => {
       if (result.pomodoroHistory) {
@@ -19,7 +19,29 @@ const Options = () => {
     });
 
     // Get historical stats
-    getHistoricalStats().then(setHistoricalStats);
+    const stats = await getHistoricalStats();
+    setHistoricalStats(stats);
+  };
+
+  useEffect(() => {
+    // Initial load
+    refreshHistoryData();
+
+    // Listen for storage changes (when history is updated)
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes.pomodoroHistory) {
+        console.log('[Options] History storage changed, refreshing data');
+        refreshHistoryData();
+      }
+    };
+
+    // Add storage listener
+    chrome.storage.onChanged.addListener(handleStorageChange);
+
+    // Cleanup
+    return () => {
+      chrome.storage.onChanged.removeListener(handleStorageChange);
+    };
   }, []);
 
   return (
