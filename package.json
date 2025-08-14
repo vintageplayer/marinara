@@ -1,6 +1,6 @@
 {
   "name": "marinara",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Pomodoro® time management assistant, updated for Manifest V3",
   "main": "index.js",
   "scripts": {
@@ -8,7 +8,9 @@
     "build": "webpack --config webpack/webpack.prod.js",
     "clean": "rimraf dist",
     "test": "npx jest",
-    "style": "prettier --write \"src/**/*.{ts,tsx}\""
+    "style": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "deploy": "./scripts/deploy.sh",
+    "package": "npm run clean && npm run build && cd dist && zip -r ../marinara-extension.zip ."
   },
   "author": "Marinara Development Team",
   "license": "MIT",
