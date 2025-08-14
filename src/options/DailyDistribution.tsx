@@ -85,7 +85,7 @@ const formatTimeRange = (time: string, intervalInMinutes: number): string => {
     return `${displayHours}:00${ampm}`;
   };
   
-  return `${formatTime(startTime)}\u2014${formatTime(endTime)}`;
+  return `${formatTime(startTime)}-${formatTime(endTime)}`;
 };
 
 const CustomTooltip = ({ active, payload, label, selectedInterval }: any) => {
