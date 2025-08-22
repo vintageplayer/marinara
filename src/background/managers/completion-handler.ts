@@ -92,10 +92,24 @@ export class CompletionHandler {
   }
 
   private async openCompletionPage(): Promise<void> {
-    await chrome.tabs.create({
-      url: chrome.runtime.getURL('phaseComplete.html'),
-      active: true
-    });
+    try {
+      // Get the currently active tab to position the new tab next to it
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      await chrome.tabs.create({
+        url: chrome.runtime.getURL('phaseComplete.html'),
+        active: true,
+        // Open next to the current active tab (or at the end if no active tab found)
+        index: activeTab ? activeTab.index + 1 : undefined
+      });
+    } catch (error) {
+      console.error('[CompletionHandler] Error opening completion page:', error);
+      // Fallback to opening without positioning
+      await chrome.tabs.create({
+        url: chrome.runtime.getURL('phaseComplete.html'),
+        active: true
+      });
+    }
   }
 
   private clearNotifications(): void {
