@@ -5,7 +5,30 @@ import { deduplicateHistory } from './core/pomodoro-history';
 
 // Initialize context menu and clean up any duplicate history entries
 chrome.runtime.onInstalled.addListener(async () => {
+  console.log('[Background] Extension installed/updated, performing cleanup');
+  
   initializeContextMenu();
+  
+  // Clean up stale notifications from previous extension session
+  try {
+    chrome.notifications.clear('pomodoro-complete');
+    console.log('[Background] Cleared stale notifications');
+  } catch (error) {
+    console.error('[Background] Error clearing notifications:', error);
+  }
+  
+  // Close any leftover phase completion pages
+  try {
+    const tabs = await chrome.tabs.query({ url: chrome.runtime.getURL('phaseComplete.html') });
+    for (const tab of tabs) {
+      await chrome.tabs.remove(tab.id!);
+    }
+    if (tabs.length > 0) {
+      console.log(`[Background] Closed ${tabs.length} leftover completion pages`);
+    }
+  } catch (error) {
+    console.error('[Background] Error closing leftover tabs:', error);
+  }
   
   // Clean up any existing duplicate timestamps
   try {
@@ -20,6 +43,32 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 // Initialize message handlers
 initializeMessageHandlers();
+
+// Clean up when extension is about to unload (more efficient than startup cleanup)
+chrome.runtime.onSuspend.addListener(() => {
+  console.log('[Background] Extension unloading, performing cleanup');
+  
+  // Clear any active notifications
+  try {
+    chrome.notifications.clear('pomodoro-complete');
+    console.log('[Background] Cleared notifications on unload');
+  } catch (error) {
+    console.error('[Background] Error clearing notifications on unload:', error);
+  }
+  
+  // Close any phase completion pages
+  // Note: This is synchronous since onSuspend has limited time
+  chrome.tabs.query({ url: chrome.runtime.getURL('phaseComplete.html') }, (tabs) => {
+    tabs.forEach(tab => {
+      if (tab.id) {
+        chrome.tabs.remove(tab.id);
+      }
+    });
+    if (tabs.length > 0) {
+      console.log(`[Background] Closed ${tabs.length} completion pages on unload`);
+    }
+  });
+});
 
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(handleContextMenuClick);
