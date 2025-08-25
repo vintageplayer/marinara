@@ -428,10 +428,9 @@ export function getDailyGroups(history: PomodoroHistory, since: Date): Record<nu
 
     let dayCount = 0;
     for (const timestamp of sortedTimestamps) {
-      const tzOffset = timestampToOffset.get(timestamp) ?? defaultOffset;
-      const adjustedTimestamp = timestamp + tzOffset;
-
-      if (adjustedTimestamp >= startTimestamp && adjustedTimestamp < endTimestamp) {
+      // Don't adjust timestamps - they're already in UTC
+      // Instead, compare directly against UTC day boundaries
+      if (timestamp >= startTimestamp && timestamp < endTimestamp) {
         dayCount++;
       }
     }

@@ -3,6 +3,7 @@ import EmptyState from './EmptyState';
 import { DistributionProps, ChartDataPoint } from './interfaces';
 import { BarChart, ResponsiveContainer, XAxis, YAxis, Bar, Tooltip } from "recharts";
 import { format } from 'date-fns';
+import { HistoryUtils } from '../background/utils/history-utils';
 
 type TimeIntervalInMinutes = 15 | 30 | 60 | 120;
 
@@ -141,16 +142,16 @@ const DailyDistribution: React.FC<DistributionProps> = ({ pomodoroHistory }) => 
     });
 
     let maxValue = 0;
-    const currentTimezoneOffset = new Date().getTimezoneOffset();
+    const timestampToOffset = HistoryUtils.createTimestampOffsetMap(pomodoroHistory);
+    const defaultOffset = new Date().getTimezoneOffset();
 
     // Fill distribution with completion counts based on selected interval
     pomodoroHistory.completion_timestamps.forEach(timestamp => {
-      // Convert timestamp to milliseconds and adjust for timezone
+      // Stored timestamps are already in UTC format - use directly
       const timestampMs = timestamp * 60 * 1000;
-      const adjustedTimestampMs = timestampMs - (currentTimezoneOffset * 60 * 1000);
       
       // Get day-relative milliseconds
-      const dayRelativeMs = adjustedTimestampMs % (24 * 60 * 60 * 1000);
+      const dayRelativeMs = timestampMs % (24 * 60 * 60 * 1000);
       
       // Calculate bucket index based on interval
       const bucketIndex = Math.floor(dayRelativeMs / (selectedInterval * 60 * 1000));

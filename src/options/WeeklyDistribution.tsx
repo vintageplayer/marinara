@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import EmptyState from './EmptyState';
 import { DistributionProps } from './interfaces';
 import { BarChart, ResponsiveContainer, XAxis, YAxis, Bar, Tooltip, TooltipProps } from "recharts";
+import { HistoryUtils } from '../background/utils/history-utils';
 
 type DayShort = typeof DAYS[number];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
@@ -64,8 +65,10 @@ const WeeklyDistribution: React.FC<DistributionProps> = ({ pomodoroHistory }) =>
     // Initialize counts for each day
     const dayCounts = DAYS.map(day => ({ time: day, value: 0 }));
 
-    // Count pomodoros for each day
+    // Count pomodoros for each day - direct comparison like Heatmap
     pomodoroHistory.completion_timestamps.forEach(timestamp => {
+      // Stored timestamps are already in UTC format
+      // Create date directly for day classification
       const date = new Date(timestamp * 60 * 1000);
       dayCounts[date.getDay()].value++;
     });
