@@ -170,7 +170,10 @@ const Heatmap: React.FC<DistributionProps> = ({ pomodoroHistory }) => {
         // Calculate weeks from the start date
         const diffTime = d.getTime() - start.getTime();
         const diffDays = diffTime / (1000 * 60 * 60 * 24);
-        const weekNumber = Math.floor(diffDays / 7);
+        // Adjust week calculation to account for day of week
+        // Days in the same calendar week should have the same week number
+        const adjustedDays = diffDays - d.getDay();
+        const weekNumber = Math.floor(adjustedDays / 7);
         return weekNumber * cellSize;
       })
       .attr('y', (d) => d.getDay() * cellSize)
