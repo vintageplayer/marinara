@@ -1,6 +1,6 @@
 {
   "name": "marinara",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Pomodoro® time management assistant, updated for Manifest V3",
   "main": "index.js",
   "scripts": {
