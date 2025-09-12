@@ -2,6 +2,7 @@ import { TimerState, TimerType } from '../core/pomodoro-settings';
 import pomodoroTimer from '../core/pomodoro-timer';
 import { TimerError } from '../core/timer-utils';
 import { getHistoricalStats } from '../core/pomodoro-history';
+import { debugLogger } from '../services/debug-logger';
 
 interface NextPhaseInfo {
   type: TimerType;
@@ -13,11 +14,16 @@ type MessageAction =
   | { action: 'getCurrentTimer' }
   | { action: 'toggleTimer' }
   | { action: 'openHistory' }
-  | { action: 'settingsChanged' };
+  | { action: 'settingsChanged' }
+  | { action: 'exportDebugLogs' }
+  | { action: 'clearDebugLogs' }
+  | { action: 'getDebugLogStats' };
 
 type MessageResponse<T extends MessageAction> = 
   T extends { action: 'getNextPhaseInfo' } ? NextPhaseInfo :
   T extends { action: 'getCurrentTimer' } ? TimerState :
+  T extends { action: 'exportDebugLogs' } ? string :
+  T extends { action: 'getDebugLogStats' } ? { count: number; oldestLog?: string; newestLog?: string } :
   void;
 
 interface ErrorResponse {
@@ -28,7 +34,7 @@ function isMessageAction(message: unknown): message is MessageAction {
   if (!message || typeof message !== 'object') return false;
   const { action } = message as { action: unknown };
   return typeof action === 'string' && 
-    ['getNextPhaseInfo', 'getCurrentTimer', 'toggleTimer', 'openHistory', 'settingsChanged'].includes(action);
+    ['getNextPhaseInfo', 'getCurrentTimer', 'toggleTimer', 'openHistory', 'settingsChanged', 'exportDebugLogs', 'clearDebugLogs', 'getDebugLogStats'].includes(action);
 }
 
 export function initializeMessageHandlers() {
@@ -77,6 +83,9 @@ export function initializeMessageHandlers() {
         
         case 'toggleTimer':
           try {
+            debugLogger.log('Messages', 'toggleTimer', 'MESSAGE RECEIVED', {
+              trigger: 'message-toggle-timer'
+            });
             pomodoroTimer.toggleTimerState();
             sendResponse();
           } catch (error) {
@@ -117,6 +126,48 @@ export function initializeMessageHandlers() {
             });
           }
           break;
+
+        case 'exportDebugLogs':
+          (async () => {
+            try {
+              const logs = await debugLogger.exportLogs();
+              sendResponse(logs);
+            } catch (error) {
+              console.error('Error exporting debug logs:', error);
+              sendResponse({ 
+                error: error instanceof Error ? error.message : 'Unknown error exporting logs'
+              });
+            }
+          })();
+          return true;
+
+        case 'clearDebugLogs':
+          (async () => {
+            try {
+              await debugLogger.clearLogs();
+              sendResponse();
+            } catch (error) {
+              console.error('Error clearing debug logs:', error);
+              sendResponse({ 
+                error: error instanceof Error ? error.message : 'Unknown error clearing logs'
+              });
+            }
+          })();
+          return true;
+
+        case 'getDebugLogStats':
+          (async () => {
+            try {
+              const stats = await debugLogger.getLogStats();
+              sendResponse(stats);
+            } catch (error) {
+              console.error('Error getting debug log stats:', error);
+              sendResponse({ 
+                error: error instanceof Error ? error.message : 'Unknown error getting log stats'
+              });
+            }
+          })();
+          return true;
           
         default:
           throw new TimerError(`Unknown action: ${(message as any).action}`);

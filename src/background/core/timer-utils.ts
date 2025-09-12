@@ -15,7 +15,21 @@ export function calculateRemainingTime(endTime: number | null): number | null {
   }
 
   const now = Date.now();
-  return Math.max(0, Math.floor((endTime - now) / 1000));
+  const remainingMs = endTime - now;
+  const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+  
+  // Log suspicious instant completions
+  if (remainingSeconds === 0 && remainingMs < -1000) {
+    console.log('[DEBUG][TimerUtils] calculateRemainingTime - INSTANT COMPLETION DETECTED:', {
+      endTime: new Date(endTime).toISOString(),
+      now: new Date(now).toISOString(),
+      remainingMs,
+      remainingSeconds,
+      timeDiff: endTime - now
+    });
+  }
+  
+  return remainingSeconds;
 }
 
 // Validation functions

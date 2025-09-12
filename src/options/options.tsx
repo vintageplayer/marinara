@@ -5,6 +5,7 @@ import Header from "./Header";
 import History from "./History";
 import Settings from "./Settings";
 import Feedback from "./Feedback";
+import DebugPanel from "./DebugPanel";
 import { PomodoroProvider } from '../context/PomodoroContext';
 
 const Options = () => {
@@ -57,6 +58,7 @@ const Options = () => {
               element={<History pomodoroHistory={pomodoroHistory} historicalStats={historicalStats} />} 
             />
             <Route path="feedback" element={<Feedback />} />
+            <Route path="debug" element={<DebugPanel />} />
             <Route path="/" element={<Navigate to="settings" replace />} />
           </Routes>
         </div>

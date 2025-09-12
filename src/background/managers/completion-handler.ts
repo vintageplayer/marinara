@@ -2,31 +2,56 @@ import { TimerState } from '../core/pomodoro-settings';
 import { notifyTimerComplete } from '../notifications/completion-notifications';
 import { addCompletedSession } from '../core/pomodoro-history';
 import { settingsManager } from './settings-manager';
+import { debugLogger } from '../services/debug-logger';
 
 export class CompletionHandler {
   private lastState: TimerState | null = null;
 
   public handleStateChange(newState: TimerState): void {
+    debugLogger.log('CompletionHandler', 'handleStateChange', 'called', {
+      lastState: this.lastState ? {
+        timerStatus: this.lastState.timerStatus,
+        timerType: this.lastState.timerType,
+        initialDurationMinutes: this.lastState.initialDurationMinutes,
+        sessionsSinceLastLongBreak: this.lastState.sessionsSinceLastLongBreak
+      } : null,
+      newState: {
+        timerStatus: newState.timerStatus,
+        timerType: newState.timerType,
+        initialDurationMinutes: newState.initialDurationMinutes,
+        sessionsSinceLastLongBreak: newState.sessionsSinceLastLongBreak
+      }
+    });
+    
     // Close completion pages and clear notifications when starting any timer
     if (this.isTimerStartEvent(this.lastState, newState)) {
-      console.log('[CompletionHandler] Timer start detected, closing completion pages and clearing notifications');
+      debugLogger.log('CompletionHandler', 'handleStateChange', 'timer start detected - closing pages and clearing notifications');
       this.closeCompletionPages();
       this.clearNotifications();
     }
 
     // Handle completion events
-    if (this.isCompletionEvent(this.lastState, newState)) {
+    const isCompletion = this.isCompletionEvent(this.lastState, newState);
+    debugLogger.log('CompletionHandler', 'handleStateChange', 'checking completion event', {
+      isCompletion,
+      oldStatus: this.lastState?.timerStatus,
+      newStatus: newState.timerStatus
+    });
+    
+    if (isCompletion) {
       // Store the last state before it gets updated
       const completedState = { ...this.lastState! };
-      console.log('[CompletionHandler] Detected completion event:', {
+      debugLogger.log('CompletionHandler', 'handleStateChange', 'COMPLETION EVENT DETECTED', {
         completedState: {
           type: completedState.timerType,
           initialDurationMinutes: completedState.initialDurationMinutes,
-          status: completedState.timerStatus
+          status: completedState.timerStatus,
+          sessionsSinceLastLongBreak: completedState.sessionsSinceLastLongBreak
         },
         newState: {
           type: newState.timerType,
-          status: newState.timerStatus
+          status: newState.timerStatus,
+          sessionsSinceLastLongBreak: newState.sessionsSinceLastLongBreak
         }
       });
       
@@ -34,6 +59,10 @@ export class CompletionHandler {
       this.handleCompletion(completedState);
     } else {
       // For non-completion events, just update the last state
+      debugLogger.log('CompletionHandler', 'handleStateChange', 'no completion event - just updating state', {
+        lastState: this.lastState?.timerStatus,
+        newState: newState.timerStatus
+      });
       this.lastState = { ...newState };
     }
   }
@@ -52,11 +81,15 @@ export class CompletionHandler {
   }
 
   private async handleCompletion(completedState: TimerState): Promise<void> {
-    if (!completedState.timerType) return;
+    if (!completedState.timerType) {
+      await debugLogger.log('CompletionHandler', 'handleCompletion', 'no timer type - returning');
+      return;
+    }
 
-    console.log('[CompletionHandler] Handling completion:', {
+    await debugLogger.log('CompletionHandler', 'handleCompletion', 'started', {
       type: completedState.timerType,
-      initialDurationMinutes: completedState.initialDurationMinutes
+      initialDurationMinutes: completedState.initialDurationMinutes,
+      sessionsSinceLastLongBreak: completedState.sessionsSinceLastLongBreak
     });
 
     // Wait for settings to be loaded and get the current settings for this timer type
@@ -65,49 +98,78 @@ export class CompletionHandler {
     const timerSettings = settings[completedState.timerType];
 
     // Show desktop notification and play sound if enabled
+    await debugLogger.log('CompletionHandler', 'handleCompletion', 'showing notification', { type: completedState.timerType });
     await notifyTimerComplete(completedState.timerType, timerSettings);
     
     // Store history for focus sessions
     if (completedState.timerType === 'focus' && completedState.initialDurationMinutes) {
-      console.log('[CompletionHandler] Storing focus session:', {
+      await debugLogger.log('CompletionHandler', 'handleCompletion', 'ABOUT TO STORE FOCUS SESSION', {
         durationMinutes: completedState.initialDurationMinutes
       });
       await addCompletedSession(completedState.initialDurationMinutes);
-      // History page will automatically refresh via storage change listener
+      await debugLogger.log('CompletionHandler', 'handleCompletion', 'focus session stored successfully');
     }
     
+    await debugLogger.log('CompletionHandler', 'handleCompletion', 'closing completion pages');
     await this.closeCompletionPages();
     
     // Only open completion tab if enabled in settings
     if (timerSettings.notifications.tab) {
+      await debugLogger.log('CompletionHandler', 'handleCompletion', 'opening completion page');
       await this.openCompletionPage();
     }
+    
+    await debugLogger.log('CompletionHandler', 'handleCompletion', 'completed');
   }
 
   private async closeCompletionPages(): Promise<void> {
     const tabs = await chrome.tabs.query({ url: chrome.runtime.getURL('phaseComplete.html') });
+    console.log('[DEBUG][CompletionHandler] closeCompletionPages:', {
+      timestamp: new Date().toISOString(),
+      tabsFound: tabs.length,
+      tabIds: tabs.map(t => t.id)
+    });
+    
     for (const tab of tabs) {
+      console.log('[DEBUG][CompletionHandler] Closing completion tab:', { tabId: tab.id });
       await chrome.tabs.remove(tab.id!);
     }
   }
 
   private async openCompletionPage(): Promise<void> {
+    console.log('[DEBUG][CompletionHandler] openCompletionPage called:', {
+      timestamp: new Date().toISOString()
+    });
+    
     try {
       // Get the currently active tab to position the new tab next to it
       const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
-      await chrome.tabs.create({
+      console.log('[DEBUG][CompletionHandler] Creating new completion tab:', {
+        activeTabId: activeTab?.id,
+        activeTabIndex: activeTab?.index
+      });
+      
+      const newTab = await chrome.tabs.create({
         url: chrome.runtime.getURL('phaseComplete.html'),
         active: true,
         // Open next to the current active tab (or at the end if no active tab found)
         index: activeTab ? activeTab.index + 1 : undefined
       });
+      
+      console.log('[DEBUG][CompletionHandler] Completion tab created successfully:', {
+        newTabId: newTab.id,
+        newTabIndex: newTab.index
+      });
     } catch (error) {
-      console.error('[CompletionHandler] Error opening completion page:', error);
+      console.error('[DEBUG][CompletionHandler] Error opening completion page:', error);
       // Fallback to opening without positioning
-      await chrome.tabs.create({
+      const fallbackTab = await chrome.tabs.create({
         url: chrome.runtime.getURL('phaseComplete.html'),
         active: true
+      });
+      console.log('[DEBUG][CompletionHandler] Fallback completion tab created:', {
+        tabId: fallbackTab.id
       });
     }
   }

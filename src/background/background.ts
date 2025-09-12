@@ -2,6 +2,7 @@ import pomodoroTimer from './core/pomodoro-timer';
 import { initializeContextMenu, handleContextMenuClick } from './ui/context-menu';
 import { initializeMessageHandlers } from './messaging/messages';
 import { deduplicateHistory } from './core/pomodoro-history';
+import { debugLogger } from './services/debug-logger';
 
 // Initialize context menu and clean up any duplicate history entries
 chrome.runtime.onInstalled.addListener(async () => {
@@ -75,12 +76,21 @@ chrome.contextMenus.onClicked.addListener(handleContextMenuClick);
 
 // Handle extension icon clicks
 chrome.action.onClicked.addListener(() => {
+  debugLogger.log('Background', 'action.onClicked', 'EXTENSION ICON CLICKED', {
+    trigger: 'extension-icon-click'
+  });
   pomodoroTimer.toggleTimerState();
 });
 
 // Handle notification clicks - start next timer
 chrome.notifications.onClicked.addListener((notificationId) => {
+  debugLogger.log('Background', 'notifications.onClicked', 'NOTIFICATION CLICKED', {
+    notificationId,
+    trigger: 'notification-click'
+  });
+  
   if (notificationId === 'pomodoro-complete') {
+    debugLogger.log('Background', 'notifications.onClicked', 'clearing notification and starting next timer');
     chrome.notifications.clear(notificationId);
     // Start the next timer (completion handler will close pages)
     pomodoroTimer.toggleTimerState();

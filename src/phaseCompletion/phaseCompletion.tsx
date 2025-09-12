@@ -51,10 +51,22 @@ export default function PhaseCompletion() {
   };
 
   const handleStartOrPause = () => {
+    console.log('[DEBUG][PhaseCompletion] Start/Pause button clicked:', {
+      timestamp: new Date().toISOString(),
+      trigger: 'phase-completion-button',
+      currentTimerState: currentTimer ? {
+        timerStatus: currentTimer.timerStatus,
+        timerType: currentTimer.timerType,
+        remainingTime: currentTimer.remainingTime
+      } : null
+    });
+    
     chrome.runtime.sendMessage({ action: 'toggleTimer' }, (response) => {
       if (response && 'error' in response) {
+        console.error('[DEBUG][PhaseCompletion] Error from toggleTimer message:', response.error);
         return;
       }
+      console.log('[DEBUG][PhaseCompletion] toggleTimer message completed successfully');
     });
   };
 

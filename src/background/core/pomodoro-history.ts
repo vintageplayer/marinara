@@ -1,6 +1,7 @@
 import { Mutex, withMutex } from '../ui/mutex';
 import { PomodoroHistoryStorage } from '../managers/history-storage';
 import { HistoryUtils } from '../utils/history-utils';
+import { debugLogger } from '../services/debug-logger';
 
 export interface CountedValue<T> {
   value: T;
@@ -153,17 +154,28 @@ export async function getHistoricalStats(): Promise<PomodoroStats> {
 }
 
 export async function addCompletedSession(duration: number): Promise<void> {
+  await debugLogger.log('PomodoroHistory', 'addCompletedSession', 'function called', { duration });
+  
   await withMutex(historyMutex, async () => {
     const history = await historyStorage.loadHistory();
     const now = new Date();
     const newTimestamp = HistoryUtils.dateToTimestamp(now);
     
+    await debugLogger.log('PomodoroHistory', 'addCompletedSession', 'creating session', {
+      newTimestamp,
+      newTimestampDate: new Date(newTimestamp * 60000).toISOString(),
+      duration,
+      currentHistoryLength: history.completion_timestamps.length
+    });
+    
     // Prevent duplicate sessions within the same minute
     const lastTimestamp = history.completion_timestamps[history.completion_timestamps.length - 1];
     if (lastTimestamp === newTimestamp) {
-      console.warn('[addCompletedSession] Duplicate timestamp detected, skipping:', {
+      await debugLogger.log('PomodoroHistory', 'addCompletedSession', 'DUPLICATE TIMESTAMP DETECTED - SKIPPING', {
         timestamp: newTimestamp,
+        timestampDate: new Date(newTimestamp * 60000).toISOString(),
         lastTimestamp,
+        lastTimestampDate: new Date(lastTimestamp * 60000).toISOString(),
         duration
       });
       return;
@@ -173,10 +185,12 @@ export async function addCompletedSession(duration: number): Promise<void> {
     HistoryUtils.updateCountedValues(history.durations, duration);
     HistoryUtils.updateCountedValues(history.timezones, now.getTimezoneOffset());
     
-    console.log('[addCompletedSession] Session added:', {
+    await debugLogger.log('PomodoroHistory', 'addCompletedSession', 'SESSION ADDED SUCCESSFULLY', {
       timestamp: newTimestamp,
+      timestampDate: new Date(newTimestamp * 60000).toISOString(),
       duration,
-      totalSessions: history.completion_timestamps.length
+      totalSessions: history.completion_timestamps.length,
+      previousTotal: history.completion_timestamps.length - 1
     });
     
     await historyStorage.saveHistory(history);

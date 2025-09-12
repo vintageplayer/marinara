@@ -13,6 +13,15 @@ const History: React.FC<HistoryProps> = ({ pomodoroHistory, historicalStats }) =
     return [...new Set(history.completion_timestamps)].length;
   };
 
+  // Get current month name
+  const getCurrentMonth = (): string => {
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    return monthNames[new Date().getMonth()];
+  };
+
   const StatBox = ({ number, label, subtext }: { number: number, label: string, subtext?: string }) => (
     <div className="flex flex-col items-center">
       <div className="text-red-700 text-[30px] font-normal mb-2">
@@ -45,7 +54,7 @@ const History: React.FC<HistoryProps> = ({ pomodoroHistory, historicalStats }) =
         />
         <StatBox 
           number={historicalStats?.monthly || 0} 
-          label="In January" 
+          label={`In ${getCurrentMonth()}`} 
           subtext={`${historicalStats?.monthlyAvg.toFixed(2) || "0.00"} avg`}
         />
         <StatBox 

@@ -10,6 +10,7 @@ import { ContextMenuManager } from '../managers/context-menu-manager';
 import { settingsManager } from '../managers/settings-manager';
 import { getHistoricalStats } from './pomodoro-history';
 import { timerAudioService } from '../services/timer-audio-service';
+import { debugLogger } from '../services/debug-logger';
 import { 
   calculateRemainingTime, 
   TimerError,
@@ -126,25 +127,40 @@ export class PomodoroTimer {
   }
 
   public async toggleTimerState(): Promise<void> {
+    await debugLogger.log('PomodoroTimer', 'toggleTimerState', 'called', {
+      currentState: {
+        timerStatus: this.currentTimer.timerStatus,
+        timerType: this.currentTimer.timerType,
+        remainingTime: this.currentTimer.remainingTime,
+        endTime: this.currentTimer.endTime ? new Date(this.currentTimer.endTime).toISOString() : null,
+        sessionsSinceLastLongBreak: this.currentTimer.sessionsSinceLastLongBreak
+      }
+    });
+    
     // Wait for settings to be initialized
     await settingsManager.waitForInitialization();
     
     if (this.isRunning()) {
+      await debugLogger.log('PomodoroTimer', 'toggleTimerState', 'pausing running timer');
       await this.pause();
     } else if (this.isPaused()) {
+      await debugLogger.log('PomodoroTimer', 'toggleTimerState', 'resuming paused timer');
       await this.resume();
     } else {
-      await this.start(this.getNextType());
+      const nextType = this.getNextType();
+      await debugLogger.log('PomodoroTimer', 'toggleTimerState', 'starting new timer', { nextType });
+      await this.start(nextType);
     }
 
-      // Log state changes
-      console.log('[PomodoroTimer] State Update:', {
+    await debugLogger.log('PomodoroTimer', 'toggleTimerState', 'completed', {
+      finalState: {
         timerStatus: this.currentTimer.timerStatus,
         timerType: this.currentTimer.timerType,
         initialDurationMinutes: this.currentTimer.initialDurationMinutes,
-        remainingTime: this.currentTimer.remainingTime
-      });
-
+        remainingTime: this.currentTimer.remainingTime,
+        sessionsSinceLastLongBreak: this.currentTimer.sessionsSinceLastLongBreak
+      }
+    });
   }
 
   public getNextType(): TimerType {
@@ -176,17 +192,18 @@ export class PomodoroTimer {
     // Wait for settings to be initialized
     await settingsManager.waitForInitialization();
 
-    console.log('[PomodoroTimer] Starting timer:', settingsManager.getSettings());
-    
     const durationMinutes = settingsManager.getTimerDurationInMinutes(timerType);
     const durationSeconds = durationMinutes * 60;
-    const endTime = Date.now() + durationSeconds * 1000;
+    const now = Date.now();
+    const endTime = now + durationSeconds * 1000;
 
-    console.log('[PomodoroTimer] Starting new timer:', {
+    await debugLogger.log('PomodoroTimer', 'start', 'STARTING TIMER', {
       type: timerType,
       durationMinutes,
       durationSeconds,
-      endTime: new Date(endTime).toISOString()
+      now: new Date(now).toISOString(),
+      endTime: new Date(endTime).toISOString(),
+      calculatedDurationMs: durationSeconds * 1000
     });
 
     await this.updateState({
@@ -292,11 +309,17 @@ export class PomodoroTimer {
   private startInterval(): void {
     this.clearInterval();
 
+    debugLogger.log('PomodoroTimer', 'startInterval', 'STARTING TIMER INTERVAL', {
+      intervalMs: TIMER_UPDATE_INTERVAL,
+      currentEndTime: this.currentTimer.endTime ? new Date(this.currentTimer.endTime).toISOString() : null
+    });
+
     this.intervalId = setInterval(async () => {
       try {
         await this.processNextInterval();
       } catch (error) {
         console.error('Error in timer interval:', error);
+        await debugLogger.log('PomodoroTimer', 'startInterval', 'ERROR IN INTERVAL - STOPPING TIMER', { error: String(error) });
         this.clearInterval();
         await this.stop();
       }
@@ -318,7 +341,18 @@ export class PomodoroTimer {
       throw new TimerError('Invalid remaining time calculated');
     }
 
+    await debugLogger.log('PomodoroTimer', 'handleRemainingTime', 'interval tick', {
+      remaining,
+      endTime: this.currentTimer.endTime ? new Date(this.currentTimer.endTime).toISOString() : null,
+      currentTime: new Date().toISOString(),
+      timerType: this.currentTimer.timerType
+    });
+
     if (remaining === 0) {
+      await debugLogger.log('PomodoroTimer', 'handleRemainingTime', 'TIMER REACHED ZERO - COMPLETING', {
+        timerType: this.currentTimer.timerType,
+        initialDuration: this.currentTimer.initialDurationMinutes
+      });
       await this.handleTimerComplete();
     } else {
       await this.updateState({ remainingTime: remaining });
@@ -329,8 +363,17 @@ export class PomodoroTimer {
     const completedPhaseType = this.currentTimer.timerType;
     this.clearInterval();
     
+    await debugLogger.log('PomodoroTimer', 'handleTimerComplete', 'called', {
+      completedPhaseType,
+      initialDurationMinutes: this.currentTimer.initialDurationMinutes,
+      currentState: {
+        timerStatus: this.currentTimer.timerStatus,
+        sessionsSinceLastLongBreak: this.currentTimer.sessionsSinceLastLongBreak
+      }
+    });
+    
     if (completedPhaseType) {
-      console.log('[PomodoroTimer] Timer completed:', {
+      await debugLogger.log('PomodoroTimer', 'handleTimerComplete', 'timer naturally completed', {
         type: completedPhaseType,
         initialDurationMinutes: this.currentTimer.initialDurationMinutes
       });

@@ -52,6 +52,12 @@ const Header: React.FC = () => {
           >
             FEEDBACK
           </Link>
+          <Link 
+            to="debug" 
+            className={buttonClasses('/debug')}
+          >
+            DEBUG
+          </Link>
         </div>
       </nav>
     </header>
