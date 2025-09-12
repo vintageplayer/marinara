@@ -97,18 +97,18 @@ export class CompletionHandler {
     const settings = settingsManager.getSettings();
     const timerSettings = settings[completedState.timerType];
 
-    // Show desktop notification and play sound if enabled
-    await debugLogger.log('CompletionHandler', 'handleCompletion', 'showing notification', { type: completedState.timerType });
-    await notifyTimerComplete(completedState.timerType, timerSettings);
-    
-    // Store history for focus sessions
+    // Store history for focus sessions FIRST (before notification so count is correct)
     if (completedState.timerType === 'focus' && completedState.initialDurationMinutes) {
-      await debugLogger.log('CompletionHandler', 'handleCompletion', 'ABOUT TO STORE FOCUS SESSION', {
+      await debugLogger.log('CompletionHandler', 'handleCompletion', 'STORING FOCUS SESSION BEFORE NOTIFICATION', {
         durationMinutes: completedState.initialDurationMinutes
       });
       await addCompletedSession(completedState.initialDurationMinutes);
       await debugLogger.log('CompletionHandler', 'handleCompletion', 'focus session stored successfully');
     }
+    
+    // Show desktop notification and play sound if enabled (AFTER session is recorded)
+    await debugLogger.log('CompletionHandler', 'handleCompletion', 'showing notification with updated count', { type: completedState.timerType });
+    await notifyTimerComplete(completedState.timerType, timerSettings);
     
     await debugLogger.log('CompletionHandler', 'handleCompletion', 'closing completion pages');
     await this.closeCompletionPages();
