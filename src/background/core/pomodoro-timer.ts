@@ -1,6 +1,7 @@
 import { 
   TimerType, 
   TIMER_UPDATE_INTERVAL,
+  CompletionReason,
   TimerState as TimerStateType  // Rename the imported interface
 } from './pomodoro-settings';
 import { CompletionHandler } from '../managers/completion-handler';
@@ -45,7 +46,8 @@ export class PomodoroTimer {
       remainingTime: null,
       initialDurationMinutes: null,
       sessionsSinceLastLongBreak: 0,
-      lastSessionDate: ''
+      lastSessionDate: '',
+      completionReason: 'none'
     };
   }
 
@@ -211,7 +213,8 @@ export class PomodoroTimer {
       timerType,
       endTime,
       remainingTime: durationSeconds,
-      initialDurationMinutes: durationMinutes
+      initialDurationMinutes: durationMinutes,
+      completionReason: 'none'
     });
 
     // Start timer sound if configured
@@ -226,6 +229,11 @@ export class PomodoroTimer {
 
   public async stop(): Promise<void> {
     try {
+      await debugLogger.log('PomodoroTimer', 'stop', 'MANUAL STOP called', {
+        currentState: this.currentTimer.timerStatus,
+        timerType: this.currentTimer.timerType
+      });
+      
       // Stop any timer sounds
       timerAudioService.stopTimerSound();
       
@@ -234,7 +242,8 @@ export class PomodoroTimer {
         timerType: null,
         endTime: null,
         remainingTime: null,
-        initialDurationMinutes: null
+        initialDurationMinutes: null,
+        completionReason: 'manual'
       });
     } catch (error) {
       await this.handleError('stopping timer', error);
@@ -355,7 +364,10 @@ export class PomodoroTimer {
       });
       await this.handleTimerComplete();
     } else {
-      await this.updateState({ remainingTime: remaining });
+      await this.updateState({ 
+      remainingTime: remaining,
+      completionReason: 'none'
+    });
     }
   }
 
@@ -379,6 +391,8 @@ export class PomodoroTimer {
       });
       
       await this.updateCompletionStats(completedPhaseType);
+      // Mark as natural completion before stopping
+      await this.updateState({ completionReason: 'natural' });
       await this.stop();
     }
   }

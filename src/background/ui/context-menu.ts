@@ -2,6 +2,7 @@ import pomodoroTimer from '../core/pomodoro-timer';
 import { MenuIds } from './context-menu-ids';
 import { menuStructure, MenuItem } from './context-menu-items';
 import { withMutex, Mutex } from './mutex';
+import { debugLogger } from '../services/debug-logger';
 
 // Create a mutex for context menu initialization
 const initMutex = new Mutex();
@@ -51,23 +52,22 @@ async function updateMenuState() {
 }
 
 export function handleContextMenuClick(info: chrome.contextMenus.OnClickData) {
-  console.log('[DEBUG][ContextMenu] Context menu clicked:', {
-    timestamp: new Date().toISOString(),
+  debugLogger.log('ContextMenu', 'handleContextMenuClick', 'CONTEXT MENU CLICKED', {
     menuItemId: info.menuItemId,
     trigger: 'context-menu-click'
   });
   
   switch (info.menuItemId) {
     case MenuIds.PAUSE:
-      console.log('[DEBUG][ContextMenu] Pausing timer via context menu');
+      debugLogger.log('ContextMenu', 'handleContextMenuClick', 'PAUSE clicked');
       pomodoroTimer.pause();
       break;
     case MenuIds.RESUME:
-      console.log('[DEBUG][ContextMenu] Resuming timer via context menu');
+      debugLogger.log('ContextMenu', 'handleContextMenuClick', 'RESUME clicked');
       pomodoroTimer.resume();
       break;
     case MenuIds.STOP:
-      console.log('[DEBUG][ContextMenu] Stopping timer via context menu');
+      debugLogger.log('ContextMenu', 'handleContextMenuClick', 'STOP clicked - should trigger manual stop');
       pomodoroTimer.stop();
       break;
     case MenuIds.START_CYCLE:

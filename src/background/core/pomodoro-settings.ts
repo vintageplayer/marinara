@@ -21,6 +21,8 @@ export interface PomodoroSettings {
   'long-break': LongBreakSettings;
 }
 
+export type CompletionReason = 'natural' | 'manual' | 'none';
+
 export interface TimerState {
   version: number;      // Version of the timer state format
   timerStatus: TimerStatus;
@@ -31,6 +33,7 @@ export interface TimerState {
   initialDurationMinutes: number | null;  // Duration in minutes that was set when timer started
   sessionsSinceLastLongBreak: number;  // Add this field
   lastSessionDate: string;    // ISO date string of the last completed session
+  completionReason: CompletionReason; // Track why timer was stopped
 }
 
 // Default settings

@@ -68,7 +68,18 @@ export class CompletionHandler {
   }
 
   private isCompletionEvent(oldState: TimerState | null, newState: TimerState): boolean {
-    return oldState?.timerStatus === 'running' && newState.timerStatus === 'stopped';
+    // Only trigger completion logic for natural timer completions, not manual stops
+    const isTransitionToStopped = oldState?.timerStatus === 'running' && newState.timerStatus === 'stopped';
+    const isNaturalCompletion = newState.completionReason === 'natural';
+    
+    debugLogger.log('CompletionHandler', 'isCompletionEvent', 'checking completion criteria', {
+      isTransitionToStopped,
+      isNaturalCompletion,
+      completionReason: newState.completionReason,
+      result: isTransitionToStopped && isNaturalCompletion
+    });
+    
+    return isTransitionToStopped && isNaturalCompletion;
   }
 
   private isTimerStartEvent(oldState: TimerState | null, newState: TimerState): boolean {
