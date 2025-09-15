@@ -17,6 +17,72 @@ const PlayIcon = () => (
 const Settings: React.FC = () => {
   const [showSettingsSaved, setShowSettingsSaved] = useState(false);
   const { settings, updateSettings } = usePomodoroContext();
+  
+  // Local state for input values during editing
+  // null = not editing, string = user is editing (including empty string)
+  const [inputValues, setInputValues] = useState<{
+    focusDuration: string | null;
+    shortBreakDuration: string | null;
+    longBreakDuration: string | null;
+    longBreakInterval: string | null;
+  }>({
+    focusDuration: null,
+    shortBreakDuration: null,
+    longBreakDuration: null,
+    longBreakInterval: null
+  });
+
+  // Helper functions
+  const isEmpty = (value: string): boolean => value.trim() === '';
+  
+  const isValidNumber = (value: string): boolean => {
+    if (isEmpty(value)) return false; // Empty is not valid but not an error
+    const num = parseInt(value);
+    return !isNaN(num) && num >= 1;
+  };
+
+  const isInvalidNumber = (field: keyof typeof inputValues): boolean => {
+    const value = inputValues[field];
+    if (value === null) return false; // Not editing
+    return !isEmpty(value) && !isValidNumber(value);
+  };
+
+  const getDisplayValue = (field: keyof typeof inputValues, settingsValue: number): string => {
+    // If user is editing (local value is not null), show exactly what they typed
+    if (inputValues[field] !== null) return inputValues[field];
+    // Otherwise show the stored settings value
+    return String(settingsValue || '');
+  };
+
+  const handleInputChange = (field: keyof typeof inputValues, value: string) => {
+    setInputValues(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleInputBlur = async (
+    field: keyof typeof inputValues,
+    timerType: TimerType,
+    settingsField: SettingsField,
+    value: string
+  ) => {
+    const trimmedValue = value.trim();
+    
+    if (isEmpty(trimmedValue)) {
+      // User left it empty - revert to stored value
+      setInputValues(prev => ({ ...prev, [field]: null }));
+      return;
+    }
+    
+    if (isValidNumber(trimmedValue)) {
+      // Valid value - save it
+      await handleSettingChange(timerType, settingsField, parseInt(trimmedValue));
+      setInputValues(prev => ({ ...prev, [field]: null }));
+    } else {
+      // Invalid value - keep it visible briefly with error styling, then revert
+      setTimeout(() => {
+        setInputValues(prev => ({ ...prev, [field]: null }));
+      }, 1500); // Give user time to see the error state
+    }
+  };
 
   const handleSettingChange = async (
     timerType: TimerType,
@@ -25,6 +91,7 @@ const Settings: React.FC = () => {
   ) => {
     try {
       console.log('[Settings] handleSettingChange', timerType, field, value);
+      
       await settingsManager.updateSetting(timerType, field, value);
       await updateSettings();
       setShowSettingsSaved(true);
@@ -90,6 +157,15 @@ const Settings: React.FC = () => {
     { name: 'Ding', value: 'ding' }
   ];
 
+  // Prevent rendering with undefined settings
+  if (!settings || !settings.focus || !settings['short-break'] || !settings['long-break']) {
+    return (
+      <div className="mt-2 max-w-2xl mx-auto text-center py-8">
+        <div className="text-gray-600">Loading settings...</div>
+      </div>
+    );
+  }
+
   return (
     <form className="mt-2 max-w-2xl mx-auto">
       {/* Focus Section */}
@@ -102,9 +178,14 @@ const Settings: React.FC = () => {
               type="number"
               min="1"
               max="999"
-              className="w-16 pl-2 py-1 border border-gray-600 rounded text-base"
-              value={settings.focus.duration}
-              onChange={(e) => handleSettingChange('focus', 'duration', parseInt(e.target.value))}
+              className={`w-16 pl-2 py-1 border rounded text-base ${
+                isInvalidNumber('focusDuration')
+                  ? 'border-red-500 bg-red-50' 
+                  : 'border-gray-600'
+              }`}
+              value={getDisplayValue('focusDuration', settings.focus.duration)}
+              onChange={(e) => handleInputChange('focusDuration', e.target.value)}
+              onBlur={(e) => handleInputBlur('focusDuration', 'focus', 'duration', e.target.value)}
               autoFocus
             />
             <span className="ml-2 text-base">minutes</span>
@@ -185,9 +266,14 @@ const Settings: React.FC = () => {
               type="number"
               min="1"
               max="999"
-              className="w-16 pl-2 py-1 border border-gray-600 rounded text-base"
-              value={settings['short-break'].duration}
-              onChange={(e) => handleSettingChange('short-break', 'duration', parseInt(e.target.value))}
+              className={`w-16 pl-2 py-1 border rounded text-base ${
+                isInvalidNumber('shortBreakDuration')
+                  ? 'border-red-500 bg-red-50' 
+                  : 'border-gray-600'
+              }`}
+              value={getDisplayValue('shortBreakDuration', settings['short-break'].duration)}
+              onChange={(e) => handleInputChange('shortBreakDuration', e.target.value)}
+              onBlur={(e) => handleInputBlur('shortBreakDuration', 'short-break', 'duration', e.target.value)}
             />
             <span className="ml-2 text-base">minutes</span>
           </div>
@@ -259,9 +345,14 @@ const Settings: React.FC = () => {
                 type="number"
                 min="1"
                 max="999"
-                className="w-16 pl-2 py-1 border border-gray-600 rounded text-base"
-                value={settings['long-break'].duration}
-                onChange={(e) => handleSettingChange('long-break', 'duration', parseInt(e.target.value))}
+                className={`w-16 pl-2 py-1 border rounded text-base ${
+                  isInvalidNumber('longBreakDuration')
+                    ? 'border-red-500 bg-red-50' 
+                    : 'border-gray-600'
+                }`}
+                value={getDisplayValue('longBreakDuration', settings['long-break'].duration)}
+                onChange={(e) => handleInputChange('longBreakDuration', e.target.value)}
+                onBlur={(e) => handleInputBlur('longBreakDuration', 'long-break', 'duration', e.target.value)}
               />
               <span className="ml-2 text-base">minutes</span>
             </div>

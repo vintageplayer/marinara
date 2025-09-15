@@ -227,11 +227,12 @@ export class PomodoroTimer {
     this.startInterval();
   }
 
-  public async stop(): Promise<void> {
+  public async stop(reason: 'manual' | 'natural' = 'manual'): Promise<void> {
     try {
-      await debugLogger.log('PomodoroTimer', 'stop', 'MANUAL STOP called', {
+      await debugLogger.log('PomodoroTimer', 'stop', `${reason.toUpperCase()} STOP called`, {
         currentState: this.currentTimer.timerStatus,
-        timerType: this.currentTimer.timerType
+        timerType: this.currentTimer.timerType,
+        reason
       });
       
       // Stop any timer sounds
@@ -243,7 +244,7 @@ export class PomodoroTimer {
         endTime: null,
         remainingTime: null,
         initialDurationMinutes: null,
-        completionReason: 'manual'
+        completionReason: reason
       });
     } catch (error) {
       await this.handleError('stopping timer', error);
@@ -391,9 +392,7 @@ export class PomodoroTimer {
       });
       
       await this.updateCompletionStats(completedPhaseType);
-      // Mark as natural completion before stopping
-      await this.updateState({ completionReason: 'natural' });
-      await this.stop();
+      await this.stop('natural');
     }
   }
 
